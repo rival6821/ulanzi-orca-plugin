@@ -1,0 +1,14 @@
+{
+  "name": "ulanzi-orca-plugin",
+  "private": true,
+  "description": "Ulanzi D200H plugin that shows Orca agent sessions and remaining Claude/Codex limits",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "setup": "npm --prefix com.ulanzi.orcasessions.ulanziPlugin ci --omit=dev",
+    "test": "node test/run.mjs",
+    "preview": "node test/run.mjs --preview",
+    "install:local": "bash scripts/install-local.sh",
+    "package": "bash scripts/package.sh"
+  }
+}

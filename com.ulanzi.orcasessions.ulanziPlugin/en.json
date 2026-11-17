@@ -1,0 +1,46 @@
+{
+  "Name": "Orca Sessions",
+  "Description": "Shows live Orca agent sessions and remaining Claude/Codex limits on your keys.",
+  "Actions": [
+    {
+      "Name": "Session slot",
+      "Tooltip": "Place on several keys. Orca sessions fill them in order."
+    },
+    {
+      "Name": "More sessions",
+      "Tooltip": "Shows the next page when there are more sessions than keys."
+    },
+    {
+      "Name": "Remaining limit",
+      "Tooltip": "Remaining Claude or Codex 5-hour / weekly limit."
+    }
+  ],
+  "Localization": {
+    "Status": "Status",
+    "Orca path": "Orca path",
+    "Auto-detect": "Leave empty to auto-detect",
+    "Show": "Show",
+    "Agents only": "Agents only",
+    "All terminals": "All terminals",
+    "Refresh every": "Refresh every",
+    "Working if output within": "Working if output within",
+    "seconds": "seconds",
+    "On press": "On press",
+    "Switch and bring Orca forward": "Switch and bring Orca forward",
+    "Switch only": "Switch only",
+    "Slot order": "Slot order",
+    "Automatic (by key position)": "Automatic (by key position)",
+    "Refresh now": "Refresh now",
+    "Shared note": "These settings apply to every session key. Slot order is set per key.",
+    "Limit": "Limit",
+    "Claude 5-hour": "Claude 5-hour",
+    "Claude weekly": "Claude weekly",
+    "Claude Fable weekly": "Claude Fable weekly",
+    "Codex 5-hour": "Codex 5-hour",
+    "Codex weekly": "Codex weekly",
+    "Check limits every": "Check limits every (min)",
+    "Usage note": "Reads the login that Claude Code and Codex already use, and sends it only to their own usage endpoints. Press the key to check now.",
+    "Claude 5-hour + weekly": "Claude 5-hour + weekly",
+    "Codex 5-hour + weekly": "Codex 5-hour + weekly"
+  }
+}

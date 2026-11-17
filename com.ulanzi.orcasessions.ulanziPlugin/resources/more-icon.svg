@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144">
+  <rect width="144" height="144" rx="16" fill="#0b1626"/>
+  <rect x="25" y="34" width="94" height="58" rx="14" fill="#12223a" stroke="#60a5fa" stroke-width="1.2" stroke-opacity="0.28"/>
+  <path d="M55 48 L72 63 L55 78 M75 48 L92 63 L75 78" stroke="#bfdbfe" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <text x="72" y="118" text-anchor="middle" font-family="-apple-system, sans-serif" font-size="16" font-weight="800" fill="#dbeafe">MORE</text>
+</svg>

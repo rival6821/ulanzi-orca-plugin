@@ -1,0 +1,46 @@
+{
+  "Name": "Orca 세션",
+  "Description": "Orca 에이전트 세션과 Claude·Codex 남은 한도를 키에 띄웁니다.",
+  "Actions": [
+    {
+      "Name": "세션 슬롯",
+      "Tooltip": "여러 키에 깔아 두면 Orca 세션이 순서대로 채워집니다."
+    },
+    {
+      "Name": "더보기",
+      "Tooltip": "세션이 키보다 많을 때 다음 페이지를 보여줍니다."
+    },
+    {
+      "Name": "남은 한도",
+      "Tooltip": "Claude·Codex의 5시간/주간 한도 중 남은 양을 보여줍니다."
+    }
+  ],
+  "Localization": {
+    "Status": "상태",
+    "Orca path": "orca 경로",
+    "Auto-detect": "비워 두면 자동으로 찾습니다",
+    "Show": "표시할 세션",
+    "Agents only": "에이전트만",
+    "All terminals": "모든 터미널",
+    "Refresh every": "새로고침 주기",
+    "Working if output within": "작업 중 판정",
+    "seconds": "초",
+    "On press": "키를 누르면",
+    "Switch and bring Orca forward": "세션으로 전환 + Orca 앞으로",
+    "Switch only": "세션으로 전환만",
+    "Slot order": "슬롯 순서",
+    "Automatic (by key position)": "자동 (키 위치 순)",
+    "Refresh now": "지금 새로고침",
+    "Shared note": "아래 설정은 모든 세션 키에 공통입니다. 슬롯 순서만 키마다 따로 정합니다.",
+    "Limit": "표시할 한도",
+    "Claude 5-hour": "Claude 5시간",
+    "Claude weekly": "Claude 주간",
+    "Claude Fable weekly": "Claude Fable 주간",
+    "Codex 5-hour": "Codex 5시간",
+    "Codex weekly": "Codex 주간",
+    "Check limits every": "한도 확인 주기(분)",
+    "Usage note": "Claude Code와 Codex에 이미 로그인된 정보를 읽어서 각 회사의 사용량 조회 주소로만 보냅니다. 키를 누르면 바로 다시 확인합니다.",
+    "Claude 5-hour + weekly": "Claude 5시간 + 주간",
+    "Codex 5-hour + weekly": "Codex 5시간 + 주간"
+  }
+}

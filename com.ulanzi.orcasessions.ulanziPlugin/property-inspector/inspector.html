@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="../libs/css/uspi.css">
+  <style>
+    /* 상태 줄 — AgentDeck 설정 화면과 같은 점 + 문장 + 보조 줄 구성 */
+    body { padding: 12px 14px 16px; }
+    .os-status { display: flex; align-items: flex-start; gap: 8px; margin: 0 0 4px; }
+    .os-dot { flex: 0 0 8px; width: 8px; height: 8px; margin-top: 6px; border-radius: 999px; background: currentColor; opacity: 0.3; }
+    .os-status[data-state="ok"] .os-dot { background: #52D988; opacity: 1; }
+    .os-status[data-state="error"] .os-dot { background: #FF6B6B; opacity: 1; }
+    .os-status[data-state="pending"] .os-dot { background: #3ED6E8; opacity: 0.8; }
+    .os-status-text { font-size: 13px; line-height: 1.5; }
+    .os-detail { margin: 0 0 8px 16px; font-size: 12px; line-height: 1.45; opacity: 0.62; word-break: break-all; white-space: pre-line; }
+    .os-note { margin: 6px 0 10px; font-size: 12px; line-height: 1.5; opacity: 0.62; }
+    .os-row-inline { display: flex; gap: 8px; align-items: center; }
+    .os-row-inline input { width: 90px; }
+    .os-btn {
+      height: 28px;
+      padding: 0 14px;
+      font-size: 12px;
+      color: var(--uspi-textcolor);
+      background: #2B2F36;
+      border: 1px solid var(--uspi-bordercolor);
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .os-btn:hover { background: #343943; }
+    .os-btn:focus-visible { outline: 2px solid #5EC8F2; outline-offset: 2px; }
+    [hidden] { display: none !important; }
+  </style>
+  <script src="../libs/js/constants.js"></script>
+  <script src="../libs/js/eventEmitter.js"></script>
+  <script src="../libs/js/timers.js"></script>
+  <script src="../libs/js/utils.js"></script>
+  <script src="../libs/js/ulanziApi.js"></script>
+</head>
+<body>
+  <div class="uspi-wrapper">
+    <div class="uspi-heading">Orca Sessions</div>
+    <div class="os-status" id="status" data-state="pending" role="status" aria-live="polite">
+      <span class="os-dot"></span>
+      <span class="os-status-text" id="status-main">Looking for Orca…</span>
+    </div>
+    <p class="os-detail" id="status-detail"></p>
+
+    <form id="property-inspector">
+      <!-- 세션 슬롯 전용 -->
+      <fieldset data-for="slot" style="border:0;margin:0;padding:0">
+        <div class="uspi-item">
+          <div class="uspi-item-label" data-localize>Slot order</div>
+          <select class="uspi-item-value" name="slot" id="slot"></select>
+        </div>
+      </fieldset>
+
+      <!-- 남은 한도 전용 -->
+      <fieldset data-for="usage" style="border:0;margin:0;padding:0">
+        <div class="uspi-item">
+          <div class="uspi-item-label" data-localize>Limit</div>
+          <select class="uspi-item-value" name="metric" id="metric">
+            <option value="auto" data-localize="Automatic (by key position)">Automatic (by key position)</option>
+            <option value="claude-5h" data-localize="Claude 5-hour">Claude 5-hour</option>
+            <option value="claude-week" data-localize="Claude weekly">Claude weekly</option>
+            <option value="claude-fable-week" data-localize="Claude Fable weekly">Claude Fable weekly</option>
+            <option value="codex-5h" data-localize="Codex 5-hour">Codex 5-hour</option>
+            <option value="codex-week" data-localize="Codex weekly">Codex weekly</option>
+            <option value="claude-pair" data-localize="Claude 5-hour + weekly">Claude 5-hour + weekly</option>
+            <option value="codex-pair" data-localize="Codex 5-hour + weekly">Codex 5-hour + weekly</option>
+          </select>
+        </div>
+        <div class="uspi-item">
+          <div class="uspi-item-label" data-localize>Check limits every</div>
+          <select class="uspi-item-value" name="usageMin">
+            <option value="2">2</option>
+            <option value="5">5</option>
+            <option value="10">10</option>
+            <option value="15">15</option>
+            <option value="30">30</option>
+          </select>
+        </div>
+        <p class="os-note" data-localize="Usage note">Reads the login that Claude Code and Codex already use, and sends it only to their own usage endpoints. Press the key to check now.</p>
+      </fieldset>
+
+      <!-- 세션 슬롯 + 더보기 공통 -->
+      <fieldset data-for="slot more" style="border:0;margin:0;padding:0">
+        <p class="os-note" data-localize="Shared note">These settings apply to every session key. Slot order is set per key.</p>
+        <div class="uspi-item">
+          <div class="uspi-item-label" data-localize>Show</div>
+          <select class="uspi-item-value" name="filter">
+            <option value="agents" data-localize="Agents only">Agents only</option>
+            <option value="all" data-localize="All terminals">All terminals</option>
+          </select>
+        </div>
+        <div class="uspi-item">
+          <div class="uspi-item-label" data-localize>On press</div>
+          <select class="uspi-item-value" name="bringToFront">
+            <option value="on" data-localize="Switch and bring Orca forward">Switch and bring Orca forward</option>
+            <option value="off" data-localize="Switch only">Switch only</option>
+          </select>
+        </div>
+        <div class="uspi-item">
+          <div class="uspi-item-label" data-localize>Refresh every</div>
+          <div class="uspi-item-value os-row-inline">
+            <input class="uspi-item-value" type="number" name="pollSec" min="1" max="30" step="1" value="2">
+            <span data-localize>seconds</span>
+          </div>
+        </div>
+        <div class="uspi-item">
+          <div class="uspi-item-label" data-localize>Working if output within</div>
+          <div class="uspi-item-value os-row-inline">
+            <input class="uspi-item-value" type="number" name="workingSec" min="1" max="120" step="1" value="5">
+            <span data-localize>seconds</span>
+          </div>
+        </div>
+        <div class="uspi-item">
+          <div class="uspi-item-label" data-localize>Orca path</div>
+          <input class="uspi-item-value" type="text" name="orcaPath" id="orcaPath" placeholder="Leave empty to auto-detect" spellcheck="false">
+        </div>
+      </fieldset>
+
+      <div class="uspi-item">
+        <div class="uspi-item-label empty"></div>
+        <button type="button" class="os-btn" id="retry" data-localize>Refresh now</button>
+      </div>
+    </form>
+  </div>
+
+  <script>
+    const form = document.getElementById('property-inspector');
+    const slotSel = document.getElementById('slot');
+    const isKo = () => String($UD.language || '').startsWith('ko');
+    const ACTION = (() => {
+      const u = Utils.getQueryParams('uuid') || '';
+      if (u.endsWith('.usage')) return 'usage';
+      if (u.endsWith('.more')) return 'more';
+      return 'slot';
+    })();
+    const ACTION_UUID = 'com.ulanzi.ulanzistudio.orcasessions.' + ACTION;
+
+    // 이 액션에 해당하는 칸만 보이고, 나머지는 비활성화해서 저장에서 빠지게 한다
+    document.querySelectorAll('fieldset[data-for]').forEach((fs) => {
+      const on = fs.dataset.for.split(' ').includes(ACTION);
+      fs.hidden = !on;
+      fs.disabled = !on;
+    });
+
+    (function fillSlots() {
+      const auto = document.createElement('option');
+      auto.value = '0';
+      auto.textContent = 'Automatic (by key position)';
+      auto.setAttribute('data-localize', 'Automatic (by key position)');
+      slotSel.appendChild(auto);
+      for (let i = 1; i <= 14; i++) {
+        const o = document.createElement('option');
+        o.value = String(i);
+        o.textContent = String(i);
+        slotSel.appendChild(o);
+      }
+    })();
+
+    function fromConfig(c) {
+      if (!c) return {};
+      const out = {};
+      if (c.filter) out.filter = c.filter;
+      if (c.bringToFront) out.bringToFront = c.bringToFront;
+      if (c.pollMs) out.pollSec = String(Math.round(c.pollMs / 1000));
+      if (c.workingSec !== undefined) out.workingSec = String(c.workingSec);
+      if (typeof c.orcaPath === 'string') out.orcaPath = c.orcaPath;
+      if (c.usageMin) out.usageMin = String(c.usageMin);
+      return out;
+    }
+
+    function perKey(p) {
+      const out = {};
+      if (ACTION === 'slot') out.slot = String(p.slot || 0);
+      if (ACTION === 'usage') out.metric = p.metric || 'auto';
+      return out;
+    }
+
+    // 화면에 있는(활성화된) 칸만 보낸다
+    function collect() {
+      const v = Utils.getFormValue(form);
+      const out = { savedAt: Date.now() };
+      if ('slot' in v) out.slot = Number(v.slot) || 0;
+      if ('metric' in v) out.metric = v.metric;
+      if ('usageMin' in v) out.usageMin = Number(v.usageMin) || 5;
+      if ('filter' in v) out.filter = v.filter;
+      if ('bringToFront' in v) out.bringToFront = v.bringToFront;
+      if ('pollSec' in v) out.pollMs = Math.max(1, Number(v.pollSec) || 2) * 1000;
+      if ('workingSec' in v) out.workingSec = Math.max(1, Number(v.workingSec) || 5);
+      if ('orcaPath' in v) out.orcaPath = (v.orcaPath || '').trim();
+      return out;
+    }
+
+    const NAMES = {
+      'claude-5h': ['Claude 5시간', 'Claude 5-hour'],
+      'claude-week': ['Claude 주간', 'Claude weekly'],
+      'claude-fable-week': ['Claude Fable 주간', 'Claude Fable weekly'],
+      'codex-5h': ['Codex 5시간', 'Codex 5-hour'],
+      'codex-week': ['Codex 주간', 'Codex weekly'],
+      'claude-pair': ['Claude 5시간 + 주간', 'Claude 5-hour + weekly'],
+      'codex-pair': ['Codex 5시간 + 주간', 'Codex 5-hour + weekly'],
+    };
+    const nm = (m) => (NAMES[m] ? NAMES[m][isKo() ? 0 : 1] : m);
+
+    function minutesAgo(t) {
+      if (!t) return '';
+      const m = Math.floor((Date.now() - t) / 60000);
+      return isKo() ? (m < 1 ? '방금' : `${m}분 전`) : (m < 1 ? 'just now' : `${m} min ago`);
+    }
+
+    function showStatus(s) {
+      const box = document.getElementById('status');
+      const main = document.getElementById('status-main');
+      const detail = document.getElementById('status-detail');
+
+      if (ACTION === 'usage') {
+        const metric = s.metric && s.metric !== 'auto' ? s.metric : s.autoMetric;
+        const provider = (metric || '').startsWith('codex') ? 'codex' : 'claude';
+        const u = s.usage && s.usage[provider];
+        main.textContent = (isKo() ? '이 키: ' : 'This key: ') + nm(metric);
+        if (u && u.error) {
+          box.dataset.state = 'error';
+          detail.textContent = u.error.message;
+        } else if (u && u.updatedAt) {
+          box.dataset.state = 'ok';
+          detail.textContent = (isKo() ? '마지막 확인 ' : 'Last checked ') + minutesAgo(u.updatedAt);
+        } else {
+          box.dataset.state = 'pending';
+          detail.textContent = isKo() ? '확인 중…' : 'Checking…';
+        }
+        return;
+      }
+
+      if (s.error) {
+        box.dataset.state = 'error';
+        main.textContent = isKo() ? 'Orca에 연결하지 못했습니다' : 'Can’t reach Orca';
+        detail.textContent = s.error.message || '';
+        return;
+      }
+      box.dataset.state = 'ok';
+      main.textContent = isKo()
+        ? `연결됨 · 세션 ${s.sessionCount}개 / 슬롯 ${s.slotCount}개`
+        : `Connected: ${s.sessionCount} sessions on ${s.slotCount} keys`;
+      detail.textContent = s.orcaPath || '';
+    }
+
+    $UD.connect(ACTION_UUID);
+
+    $UD.onConnected(() => {
+      const op = document.getElementById('orcaPath');
+      if (op) op.placeholder = $UD.t('Auto-detect');
+      $UD.sendToPlugin({ cmd: 'hello' });
+    });
+
+    $UD.onAdd((msg) => {
+      const p = msg.param || {};
+      Utils.setFormValue({ ...fromConfig(p), ...perKey(p) }, form);
+      $UD.sendToPlugin({ cmd: 'hello' });
+    });
+
+    $UD.onParamFromApp((msg) => {
+      const p = msg.param || {};
+      Utils.setFormValue({ ...fromConfig(p), ...perKey(p) }, form);
+    });
+
+    $UD.onSendToPropertyInspector((msg) => {
+      const s = msg.payload || {};
+      if (s.cmd !== 'status') return;
+      if (!document.activeElement || !form.contains(document.activeElement)) {
+        Utils.setFormValue(fromConfig(s.config), form);
+      }
+      showStatus(s);
+    });
+
+    form.addEventListener('change', () => $UD.sendParamFromPlugin(collect()));
+    document.getElementById('retry').addEventListener('click', () => {
+      document.getElementById('status').dataset.state = 'pending';
+      document.getElementById('status-main').textContent = '…';
+      $UD.sendToPlugin({ cmd: 'refresh' });
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,81 @@
+{
+  "Author": "Orca Sessions",
+  "Name": "Orca Sessions",
+  "Description": "Shows live Orca agent sessions and remaining Claude/Codex limits on your keys.",
+  "Icon": "resources/plugin-icon.png",
+  "Category": "Orca",
+  "CategoryIcon": "resources/category-icon.png",
+  "Version": "0.3.0",
+  "UUID": "com.ulanzi.ulanzistudio.orcasessions",
+  "Type": "JavaScript",
+  "CodePath": "plugin/app.js",
+  "SupportedInMultiActions": false,
+  "Actions": [
+    {
+      "Name": "Session slot",
+      "Icon": "resources/action-icon.svg",
+      "Tooltip": "Place on several keys. Orca sessions fill them in order.",
+      "UUID": "com.ulanzi.ulanzistudio.orcasessions.slot",
+      "PropertyInspectorPath": "property-inspector/inspector.html",
+      "state": 0,
+      "States": [
+        {
+          "Name": "Default",
+          "Image": "resources/slot-default.svg"
+        }
+      ],
+      "Controllers": [
+        "Keypad"
+      ],
+      "Devices": [],
+      "SupportedInMultiActions": false
+    },
+    {
+      "Name": "More sessions",
+      "Icon": "resources/more-icon.svg",
+      "Tooltip": "Shows the next page when there are more sessions than keys.",
+      "UUID": "com.ulanzi.ulanzistudio.orcasessions.more",
+      "PropertyInspectorPath": "property-inspector/inspector.html",
+      "state": 0,
+      "States": [
+        {
+          "Name": "Default",
+          "Image": "resources/more-icon.svg"
+        }
+      ],
+      "Controllers": [
+        "Keypad"
+      ],
+      "Devices": [],
+      "SupportedInMultiActions": false
+    },
+    {
+      "Name": "Remaining limit",
+      "Icon": "resources/usage-icon.svg",
+      "Tooltip": "Remaining Claude or Codex 5-hour / weekly limit.",
+      "UUID": "com.ulanzi.ulanzistudio.orcasessions.usage",
+      "PropertyInspectorPath": "property-inspector/inspector.html",
+      "state": 0,
+      "States": [
+        {
+          "Name": "Default",
+          "Image": "resources/usage-icon.svg"
+        }
+      ],
+      "Controllers": [
+        "Keypad"
+      ],
+      "Devices": [],
+      "SupportedInMultiActions": false
+    }
+  ],
+  "OS": [
+    {
+      "Platform": "mac",
+      "MinimumVersion": "10.15"
+    }
+  ],
+  "Software": {
+    "MinVersion": "2.1.4"
+  }
+}

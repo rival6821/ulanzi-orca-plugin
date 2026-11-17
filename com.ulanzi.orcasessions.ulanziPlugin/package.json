@@ -1,0 +1,12 @@
+{
+  "name": "orca-sessions-ulanzi-plugin",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node plugin/app.js"
+  },
+  "dependencies": {
+    "ws": "8.22.1"
+  }
+}
