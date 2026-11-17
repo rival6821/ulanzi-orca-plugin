@@ -2,6 +2,8 @@
 
 Ulanzi D200H용 Ulanzi Studio 플러그인. Orca(Stably AI의 에이전트 개발 환경)의 세션과 Claude·Codex 남은 한도를 키에 띄운다. macOS 전용. 사용자 문서는 한국어로 쓴다.
 
+**답변은 항상 한국어로 한다.**
+
 ## 명령
 
 - `npm run setup` — 플러그인 폴더에 `ws` 설치 (런타임 의존성은 이것뿐)
