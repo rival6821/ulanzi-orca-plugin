@@ -10,8 +10,9 @@ import { OrcaClient } from './orca.js';
 import { UsageStore, METRICS } from './usage.js';
 import {
   renderSession, renderEmpty, renderMore, renderError, renderMoreKey, renderNoSessions,
-  renderUsageGauge, renderUsagePairGauge,
+  renderUsageGauge, renderUsagePairGauge, sessionFrames, isAnimated, ORBIT_DELAY_MS,
 } from './render.js';
+import { framesToGif } from './gif.js';
 
 const PLUGIN_UUID = 'com.ulanzi.ulanzistudio.orcasessions';
 const A_SLOT = `${PLUGIN_UUID}.slot`;
@@ -73,11 +74,27 @@ function keysOf(action) {
 }
 const hasAny = (action) => [...keys.values()].some((k) => k.action === action);
 
-function send(ctx, dataUrl) {
+/** makeGif가 있으면 정적 그림을 먼저 보내고, GIF가 준비되면 (그새 그림이 안 바뀐 경우만) 바꿔 끼운다. */
+function send(ctx, dataUrl, makeGif) {
   if (lastIcon.get(ctx) === dataUrl) return;
   lastIcon.set(ctx, dataUrl);
   $UD.setBaseDataIcon(ctx, dataUrl);
+  if (!makeGif) return;
+  let job = gifCache.get(dataUrl);
+  if (!job) {
+    job = makeGif();
+    gifCache.set(dataUrl, job);
+    if (gifCache.size > 32) gifCache.delete(gifCache.keys().next().value);
+  }
+  job.then((gif) => {
+    if (gif && lastIcon.get(ctx) === dataUrl) $UD.setGifDataIcon(ctx, gif);
+  });
 }
+const gifCache = new Map(); // 정적 data URL → Promise<GIF base64|null>
+
+// 방금 끝난(done) 세션은 1분 동안, 또는 키를 눌러 확인할 때까지 DONE으로 깜빡인다.
+const DONE_BLINK_MS = 60 * 1000;
+const seenDone = new Set(); // `${paneKey}@${stateStartedAt}` — 확인한 완료
 
 // ───────────────────────── 설정 ─────────────────────────
 
@@ -170,22 +187,23 @@ function viewFor(t, now) {
   const name =
     row?.conversationName || row?.displayName || row?.taskTitle ||
     cleanTitle(t.paneTitle) || cleanTitle(t.title) || basename(t.worktreePath) || '(untitled)';
-  const branch = String(t.branch || '').replace(/^refs\/heads\//, '') || basename(t.worktreePath);
 
   if (t.exitCause || t.connected === false || t.orphaned === true) {
-    return { tone: 'ended', agent, name, detail: branch };
+    return { tone: 'ended', agent, name };
   }
   // Orca가 알려주는 상태가 있으면 그대로 쓴다
   if (row?.state) {
-    if (row.state === 'blocked') return { tone: 'awaiting', agent, name, detail: row.toolName || branch };
+    if (row.state === 'blocked') return { tone: 'awaiting', agent, name };
     if (row.state === 'working' || row.state === 'waiting') {
-      return { tone: 'working', agent, name, detail: row.toolName || branch };
+      return { tone: 'working', agent, name };
     }
-    return { tone: 'idle', agent, name, detail: branch };
+    const doneId = `${row.paneKey}@${row.stateStartedAt}`;
+    const fresh = row.state === 'done' && now - Number(row.stateStartedAt) < DONE_BLINK_MS && !seenDone.has(doneId);
+    return { tone: 'idle', agent, name, fresh, doneId };
   }
   // 없으면 마지막 출력 시각으로만 추정 (주황 '승인 필요'는 추정으로 띄우지 않는다)
   const quietMs = t.lastOutputAt ? now - Number(t.lastOutputAt) : Infinity;
-  return { tone: quietMs < config.workingSec * 1000 ? 'working' : 'idle', agent, name, detail: branch };
+  return { tone: quietMs < config.workingSec * 1000 ? 'working' : 'idle', agent, name };
 }
 
 async function pollSessionsOnce() {
@@ -271,7 +289,8 @@ function renderSessions() {
       return;
     }
     assignment.set(ctx, { type: 'session', handle: h });
-    send(ctx, renderSession(viewFor(sessions.get(h), now)));
+    const v = viewFor(sessions.get(h), now);
+    send(ctx, renderSession(v), isAnimated(v) && (() => framesToGif(sessionFrames(v), ORBIT_DELAY_MS)));
   });
 
   moreCtxs.forEach((ctx) => send(ctx, renderMoreKey(pageInfo)));
@@ -318,14 +337,17 @@ function shortUsageError(e) {
   return 'unavailable';
 }
 
+// 한도 키를 누르면 모든 한도 키가 남은 % ↔ 사용한 %로 같이 바뀐다 (메모리에만, 재시작하면 남은 %)
+let showUsed = false;
+
 function renderUsageKeys() {
   for (const [ctx, metric] of usageMetrics()) {
     const m = METRICS[metric];
     const st = usage.get(m.provider);
     if (m.pair) {
-      send(ctx, renderUsagePairGauge(m.brand, [usageRow(st, 'session', '5H'), usageRow(st, 'weekly', '7D')]));
+      send(ctx, renderUsagePairGauge(m.brand, [usageRow(st, 'session', '5H'), usageRow(st, 'weekly', '7D')], showUsed));
     } else {
-      send(ctx, renderUsageGauge({ provider: m.brand, ...usageRow(st, m.window, m.label) }));
+      send(ctx, renderUsageGauge({ provider: m.brand, ...usageRow(st, m.window, m.label), showUsed }));
     }
   }
 }
@@ -469,10 +491,16 @@ $UD.onRun(async (jsn) => {
   }
 
   if (action === A_USAGE) {
-    await refreshUsage(true);
+    // 조회 오류가 있는 키는 누르면 다시 조회(토큰 갱신 후 등), 아니면 남은 % ↔ 사용한 % 전환
     const metric = usageMetrics().get(ctx);
-    const err = metric && usage.get(METRICS[metric].provider)?.error;
-    if (err) $UD.toast(err.message);
+    if (metric && usage.get(METRICS[metric].provider)?.error) {
+      await refreshUsage(true);
+      const err = usage.get(METRICS[metric].provider)?.error;
+      if (err) $UD.toast(err.message);
+      return;
+    }
+    showUsed = !showUsed;
+    renderUsageKeys();
     return;
   }
 
@@ -487,6 +515,12 @@ $UD.onRun(async (jsn) => {
     orca.env = null;
     pollSessions();
   } else if (a.type === 'session') {
+    const t = sessions.get(a.handle);
+    const v = t && viewFor(t, Date.now());
+    if (v?.fresh) {
+      seenDone.add(v.doneId); // 확인했으니 깜빡임을 멈춘다
+      renderSessions();
+    }
     try {
       await orca.focusTerminal(a.handle);
       if (config.bringToFront === 'on') await orca.activateApp();

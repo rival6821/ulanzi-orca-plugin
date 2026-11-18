@@ -36,3 +36,11 @@ plugin/ulanzi/ 와 libs/ 는 UlanziTechnology의 공식 SDK이며 Apache License
 ## ws
 
 node_modules/ws 는 MIT License (node_modules/ws/LICENSE).
+
+## @resvg/resvg-wasm
+
+node_modules/@resvg/resvg-wasm 은 Mozilla Public License 2.0 (https://github.com/yisibl/resvg-js). RUNNING 키 GIF 프레임을 래스터화하는 데 씁니다. 수정하지 않았습니다.
+
+## gifenc
+
+node_modules/gifenc 는 MIT License (node_modules/gifenc/LICENSE.md). GIF 인코딩 방식(델타 프레임)은 AgentDeck src/gif.ts를 따랐습니다.

@@ -140,36 +140,68 @@ function statusCard({ icon, label, subtitle = '', detail = '', tone = 'info' }) 
   return toDataUrl(svgFrame(c.bg, inner));
 }
 
-// ── 세션 키 (AgentDeck renderSessionSlot, 애니메이션 없는 정적 버전) ──
+// ── RUNNING 테두리 회전 (AgentDeck renderOrbitingRect) ──
+// 둥근 사각형(128, rx 12)의 실제 둘레. 마지막 프레임과 첫 프레임이 끊김 없이 이어지도록 이 값으로 나눈다.
+const ORBIT_PERIMETER = 4 * (128 - 24) + 2 * Math.PI * 12;
+export const ORBIT_FRAMES = 24;
+export const ORBIT_DELAY_MS = 145; // 한 바퀴 ≈ 3.5초 (AgentDeck과 같은 속도)
+
+function orbitBorder(frame) {
+  const t = frame / ORBIT_FRAMES;
+  const pulse = 0.72 + 0.2 * Math.abs(Math.sin(Math.PI * t));
+  const dash = 92;
+  const off = (-t * ORBIT_PERIMETER).toFixed(2);
+  const common = `x="8" y="8" width="128" height="128" rx="12" fill="none" stroke="${WORKING}" stroke-linecap="round"`;
+  const dashAttr = `stroke-dasharray="${dash} ${(ORBIT_PERIMETER - dash).toFixed(2)}" stroke-dashoffset="${off}"`;
+  return `<rect ${common} stroke-width="1.2" opacity="0.18"/>` +
+    `<rect ${common} stroke-width="4.8" ${dashAttr} opacity="${(pulse * 0.72).toFixed(2)}" filter="url(#pg)"/>` +
+    `<rect ${common} stroke-width="2.2" ${dashAttr} opacity="${Math.min(1, pulse + 0.06).toFixed(2)}"/>`;
+}
+
+// ── 세션 키 (AgentDeck renderSessionSlot) ──
+// 제목 상자: 상태 글자(y 32) 아래부터 키 안쪽 아래 여백까지. 폭은 x 20부터 100px.
+const NAME_TOP = 40, NAME_BOTTOM = 122, NAME_W = 100;
+const NAME_SIZES = [22, 20, 18, 16, 14];
 /**
  * @param {object} v
  * @param {'working'|'awaiting'|'idle'|'ended'} v.tone
  * @param {string} v.agent   에이전트 id (claude, codex …) — 강조색
  * @param {string} v.name    세션 이름
- * @param {string} v.detail  아래쪽 한 줄 (도구 / 브랜치)
  */
-export function renderSession(v) {
+export const renderSession = (v) => toDataUrl(sessionSvg(v));
+
+/** 움직이는 키(RUNNING·PERMIT?·DONE)인지 */
+export const isAnimated = (v) => v.tone === 'working' || v.tone === 'awaiting' || (v.tone === 'idle' && v.fresh);
+
+/** 움직이는 키의 GIF 프레임(SVG 문자열 ORBIT_FRAMES개) */
+export const sessionFrames = (v) => Array.from({ length: ORBIT_FRAMES }, (_, i) => sessionSvg(v, i));
+
+function sessionSvg(v, frame = null) {
   const isWorking = v.tone === 'working';
   const isAsking = v.tone === 'awaiting';
   const isEnded = v.tone === 'ended';
+  const isDone = v.tone === 'idle' && !!v.fresh; // 방금 끝남 — 확인할 때까지 초록으로 깜빡인다
   const accent = agentAccent(v.agent);
   const fam = esc(FONT_UI);
 
-  const stateLbl = isAsking ? 'PERMIT?' : isWorking ? 'RUNNING' : isEnded ? 'ENDED' : 'IDLE';
-  const colorText = isWorking ? '#CCFBF1' : isAsking ? '#FCD34D' : isEnded ? UI.idleDark : accent;
+  const stateLbl = isAsking ? 'PERMIT?' : isWorking ? 'RUNNING' : isEnded ? 'ENDED' : isDone ? 'DONE' : 'IDLE';
+  const colorText = isWorking ? '#CCFBF1' : isAsking ? '#FCD34D' : isDone ? '#BBF7D0' : isEnded ? UI.idleDark : accent;
 
-  // 이름: 16px로 104px 폭에 맞추고, 넘치면 14px로
-  const maxW = 100;
-  let size = 16;
-  let lines = wrapByWidth(v.name || '(untitled)', maxW, size, 3);
-  if (lines.length > 2 || lines.some((l) => textW(l, size) > maxW)) {
-    size = 14;
-    lines = wrapByWidth(v.name || '(untitled)', maxW, size, 4);
+  // 이름: 상태 글자 아래 상자(NAME_TOP..NAME_BOTTOM)에, 잘리지 않고 들어가는 가장 큰 크기로.
+  // 다 안 들어가면 가장 작은 크기에서 마지막 줄을 …로 자른다.
+  const name = v.name || '(untitled)';
+  let size, lh, lines;
+  for (size of NAME_SIZES) {
+    lh = Math.round(size * 1.15);
+    const maxLines = Math.floor((NAME_BOTTOM - NAME_TOP - size) / lh) + 1;
+    lines = wrapByWidth(name, NAME_W, size, 99);
+    if (lines.length <= maxLines) break;
+    lines = wrapByWidth(name, NAME_W, size, maxLines);
   }
-  const startY = [0, 64, 56, 52, 50][lines.length];
-  const lh = lines.length === 4 ? 15 : 18;
+  const blockH = (lines.length - 1) * lh + size;
+  const firstY = NAME_TOP + (NAME_BOTTOM - NAME_TOP - blockH) / 2 + size * 0.82; // 0.82 ≈ 글자 윗부분(ascent)
   const nameText = lines.map((l, i) =>
-    `<text x="20" y="${startY + i * lh}" font-size="${size}" font-weight="600" fill="${isEnded ? '#71717A' : UI.hudText}" font-family="${fam}">${esc(l)}</text>`).join('');
+    `<text x="20" y="${(firstY + i * lh).toFixed(1)}" font-size="${size}" font-weight="600" fill="${isEnded ? '#71717A' : UI.hudText}" font-family="${fam}">${esc(l)}</text>`).join('');
 
   const blur = `<filter id="pg" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur in="SourceGraphic" stdDeviation="2.4"/></filter>`;
   let defs = `<linearGradient id="sd-bg" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#1C1C1E"/><stop offset="100%" stop-color="#0C0C0E"/></linearGradient>`;
@@ -177,28 +209,33 @@ export function renderSession(v) {
   let pill = '';
   if (isWorking) {
     defs += blur;
-    border = `<rect x="8" y="8" width="128" height="128" rx="12" fill="none" stroke="${WORKING}" stroke-width="4.5" opacity="0.9" filter="url(#pg)"/>` +
+    border = frame != null ? orbitBorder(frame) :
+      `<rect x="8" y="8" width="128" height="128" rx="12" fill="none" stroke="${WORKING}" stroke-width="4.5" opacity="0.9" filter="url(#pg)"/>` +
       `<rect x="8" y="8" width="128" height="128" rx="12" fill="none" stroke="${WORKING}" stroke-width="1.5" opacity="0.81"/>`;
   } else if (isAsking) {
+    // 깜빡임: 한 바퀴(ORBIT_FRAMES)에 두 번. 정적일 때는 가장 밝은 모습.
+    const b = frame != null ? Math.abs(Math.cos((2 * Math.PI * frame) / ORBIT_FRAMES)) : 1;
     defs += blur;
-    border = `<rect x="8" y="8" width="128" height="128" rx="12" fill="none" stroke="${UI.attn}" stroke-width="7" opacity="0.6" filter="url(#pg)"/>` +
-      `<rect x="8" y="8" width="128" height="128" rx="12" fill="none" stroke="${UI.attn}" stroke-width="3" opacity="0.97"/>`;
+    border = `<rect x="8" y="8" width="128" height="128" rx="12" fill="none" stroke="${UI.attn}" stroke-width="7" opacity="${(0.6 * b).toFixed(2)}" filter="url(#pg)"/>` +
+      `<rect x="8" y="8" width="128" height="128" rx="12" fill="none" stroke="${UI.attn}" stroke-width="3" opacity="${(0.3 + 0.67 * b).toFixed(2)}"/>`;
     pill = `<rect x="94" y="14" width="38" height="17" rx="8.5" fill="${UI.attn}"/><text x="113" y="26.5" font-size="10" font-weight="800" text-anchor="middle" fill="#221500" font-family="${fam}">PERM</text>`;
+  } else if (isDone) {
+    // 한 바퀴에 한 번, 천천히
+    const b = frame != null ? Math.abs(Math.cos((Math.PI * frame) / ORBIT_FRAMES)) : 1;
+    defs += blur;
+    border = `<rect x="8" y="8" width="128" height="128" rx="12" fill="none" stroke="${UI.ok}" stroke-width="6" opacity="${(0.55 * b).toFixed(2)}" filter="url(#pg)"/>` +
+      `<rect x="8" y="8" width="128" height="128" rx="12" fill="none" stroke="${UI.ok}" stroke-width="2.5" opacity="${(0.25 + 0.7 * b).toFixed(2)}"/>`;
   }
 
-  // 아래 줄 앞의 작은 브랜드 색 점 (로고 대신)
-  const detail = fit(v.detail || '', 96, 13);
-  const bottom = `<circle cx="24" cy="116" r="4" fill="${accent}" opacity="${isEnded ? 0.4 : 0.95}"/>` +
-    `<text x="33" y="120" font-size="13" font-weight="500" fill="${colorText}" opacity="0.8" font-family="${fam}">${esc(detail)}</text>`;
 
-  return toDataUrl(svgOpen +
+  return (svgOpen +
     `<defs>${defs}</defs>` +
     `<rect width="${SIZE}" height="${SIZE}" rx="16" fill="url(#sd-bg)"/>` +
     `<rect x="8" y="8" width="128" height="128" rx="12" fill="#2C2C2E" opacity="0.8"/>` +
     border + pill +
     // PERM 알약과 겹치지 않도록 승인 대기일 때만 글자를 조금 줄인다
     `<text x="20" y="32" font-size="${isAsking ? 14 : 17}" font-weight="800" fill="${colorText}" font-family="${fam}">${stateLbl}</text>` +
-    nameText + bottom + `</svg>`);
+    nameText + `</svg>`);
 }
 
 export const renderEmpty = () => toDataUrl(svgFrame('#0a0a0a', ''));
@@ -216,7 +253,8 @@ export const renderNoSessions = () => statusCard({ icon: 'no-session', label: 'N
 export const renderError = (title, detail) => statusCard({ icon: 'offline', label: 'OFFLINE', subtitle: title, detail, tone: 'brand' });
 
 // ── 남은 한도 (AgentDeck renderUsageGauge / renderUsagePairGauge) ──
-// AgentDeck은 사용한 %를 보여주지만, 여기서는 남은 %를 보여주고 물높이도 남은 양으로 그린다.
+// 기본은 남은 %(LEFT)와 남은 양만큼의 물높이. 키를 누르면 사용한 %(USED)로 바뀐다(d.showUsed).
+// 숫자·물높이·막대만 바뀌고, 색은 항상 사용량 기준이다.
 // 색은 AgentDeck과 같은 기준: 사용 70% 미만 초록, 90% 미만 주황, 그 이상 빨강.
 
 function usageColor(used, muted) {
@@ -258,6 +296,7 @@ function brandTag(provider, x, y, size, dim) {
  * @param {{usedPercent:number,resetsAt:number|null}|null} d.window
  * @param {string|null} d.error
  * @param {number} d.updatedAt
+ * @param {boolean} [d.showUsed]  true면 사용한 %를 보여준다
  */
 export function renderUsageGauge(d) {
   const W = 144, H = 144, RX = 12;
@@ -275,10 +314,10 @@ export function renderUsageGauge(d) {
   }
 
   const used = Math.max(0, Math.min(100, d.window.usedPercent));
-  const remaining = Math.round(100 - used);
+  const shown = d.showUsed ? Math.round(used) : Math.round(100 - used);
   const stale = !!(d.error && d.updatedAt && now - d.updatedAt > 60000);
   const color = usageColor(used, stale);
-  const fillH = Math.round((H * remaining) / 100);
+  const fillH = Math.round((H * shown) / 100);
   const fillY = H - fillH;
   const fill = fillH > 0
     ? `<g clip-path="url(#ug)"><rect x="0" y="${fillY}" width="${W}" height="${fillH}" fill="${color}" opacity="${stale ? 0.22 : 0.38}"/><rect x="0" y="${fillY}" width="${W}" height="3" fill="${color}"/></g>`
@@ -287,25 +326,25 @@ export function renderUsageGauge(d) {
   const head = stale ? '#64748b' : '#ffffff';
 
   return toDataUrl(svgOpen + clip + bg + fill + labelEl(head) + brandTag(d.provider, 130, 32, 13, stale) +
-    pctLeft(remaining, 92, 42, head) +
+    pctLabel(shown, d.showUsed ? 'USED' : 'LEFT', 92, 42, head) +
     (reset ? `<text x="72" y="122" text-anchor="middle" font-family="${esc(FONT_NUM)}" font-size="17" font-weight="bold" fill="${head}">${esc(reset)}</text>` : '') +
     `</svg>`);
 }
 
-// "73%LEFT" — 숫자는 크게, LEFT는 작게. tspan 없이 두 덩어리로 가운데 맞춤 (AgentDeck remainingPercentSvgText)
-function pctLeft(remaining, y, size, fill) {
-  const num = `${remaining}%`;
+// "73%LEFT" / "27%USED" — 숫자는 크게, 단위는 작게. tspan 없이 두 덩어리로 가운데 맞춤 (AgentDeck remainingPercentSvgText)
+function pctLabel(value, word, y, size, fill) {
+  const num = `${value}%`;
   const unit = Math.round(size * 0.32);
   const gap = 3;
-  const total = textW(num, size) + gap + textW('LEFT', unit);
+  const total = textW(num, size) + gap + textW(word, unit);
   const x0 = 72 - total / 2;
   const x1 = x0 + textW(num, size) + gap;
   return `<text x="${x0.toFixed(1)}" y="${y}" font-family="${esc(FONT_NUM)}" font-size="${size}" font-weight="bold" fill="${fill}">${num}</text>` +
-    `<text x="${x1.toFixed(1)}" y="${y}" font-family="${esc(FONT_NUM)}" font-size="${unit}" font-weight="bold" fill="${fill}" opacity="0.8">LEFT</text>`;
+    `<text x="${x1.toFixed(1)}" y="${y}" font-family="${esc(FONT_NUM)}" font-size="${unit}" font-weight="bold" fill="${fill}" opacity="0.8">${word}</text>`;
 }
 
-/** 한 키에 두 창(5H + 7D)을 위아래로 (AgentDeck renderUsagePairGauge) */
-export function renderUsagePairGauge(provider, rows) {
+/** 한 키에 두 창(5H + 7D)을 위아래로 (AgentDeck renderUsagePairGauge). showUsed면 사용한 %. */
+export function renderUsagePairGauge(provider, rows, showUsed = false) {
   const W = 144, H = 144, RX = 12;
   const now = Date.now();
   const bg = `<rect width="${W}" height="${H}" rx="${RX}" fill="${UI.popupBgMid}"/>`;
@@ -318,20 +357,21 @@ export function renderUsagePairGauge(provider, rows) {
         (r.error ? `<text x="12" y="${y + 51}" font-family="${esc(FONT_UI)}" font-size="10" fill="${UI.ttyDim}">${esc(fit(r.error, 120, 10))}</text>` : '');
     }
     const used = Math.max(0, Math.min(100, r.window.usedPercent));
-    const remaining = Math.round(100 - used);
+    const shown = showUsed ? Math.round(used) : Math.round(100 - used);
     const stale = !!(r.error && r.updatedAt && now - r.updatedAt > 60000);
     const color = usageColor(used, stale);
     const text = stale ? UI.ttyDim : TIDE_50;
     const reset = stale ? agoShort(now - r.updatedAt) : formatResetCountdown(r.window.resetsAt, now);
-    const barW = Math.round((120 * remaining) / 100);
+    const barW = Math.round((120 * shown) / 100);
     const numRight = 118;
     return `<text x="12" y="${y + 29}" font-family="${esc(FONT_MONO)}" font-size="18" font-weight="bold" fill="${text}">${esc(r.label)}</text>` +
-      `<text x="${numRight}" y="${y + 29}" text-anchor="end" font-family="${esc(FONT_PLEX)}" font-size="20" font-weight="bold" fill="${text}">${remaining}</text>` +
+      `<text x="${numRight}" y="${y + 29}" text-anchor="end" font-family="${esc(FONT_PLEX)}" font-size="20" font-weight="bold" fill="${text}">${shown}</text>` +
       `<text x="${numRight + 2}" y="${y + 29}" font-family="${esc(FONT_PLEX)}" font-size="12" font-weight="bold" fill="${text}">%</text>` +
       (reset ? `<text x="12" y="${y + 51}" font-family="${esc(FONT_MONO)}" font-size="11" font-weight="bold" fill="${text}">${esc(reset)}</text>` : '') +
       `<rect x="12" y="${y + 62}" width="120" height="3" rx="1.5" fill="${UI.ttyFaint}"/>` +
       (barW > 0 ? `<rect x="12" y="${y + 62}" width="${barW}" height="3" rx="1.5" fill="${color}" opacity="${stale ? 0.55 : 1}"/>` : '');
   }).join('');
-  // 브랜드 이름은 위 칸 초기화 시간 줄의 오른쪽 끝에
-  return toDataUrl(svgOpen + bg + divider + body + brandTag(provider, 132, 51, 11, false) + `</svg>`);
+  // 브랜드 이름은 위 칸, LEFT/USED는 아래 칸 초기화 시간 줄의 오른쪽 끝에
+  const mode = `<text x="132" y="${H / 2 + 51}" text-anchor="end" font-family="${esc(FONT_MONO)}" font-size="11" font-weight="bold" fill="${UI.hudSubtext}">${showUsed ? 'USED' : 'LEFT'}</text>`;
+  return toDataUrl(svgOpen + bg + divider + body + brandTag(provider, 132, 51, 11, false) + mode + `</svg>`);
 }

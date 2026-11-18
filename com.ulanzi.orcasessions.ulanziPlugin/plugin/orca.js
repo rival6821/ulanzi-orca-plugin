@@ -11,7 +11,11 @@ import path from 'path';
 
 const HOME = os.homedir();
 
+// 앱 번들 안의 원본이 1순위. /usr/local/bin/orca는 root 소유 0700 심볼릭 링크로
+// 깔리는 경우가 있어, 실행은 되지만 스크립트가 readlink로 앱 위치를 못 찾고 실패한다.
 const CANDIDATES = [
+  '/Applications/Orca.app/Contents/Resources/bin/orca',
+  path.join(HOME, 'Applications/Orca.app/Contents/Resources/bin/orca'),
   '/usr/local/bin/orca',
   '/opt/homebrew/bin/orca',
   path.join(HOME, '.local/bin/orca'),

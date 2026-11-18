@@ -7,8 +7,8 @@ cd "$(dirname "$0")/.."
 NAME="com.ulanzi.orcasessions.ulanziPlugin"
 DEST_DIR="$HOME/Library/Application Support/Ulanzi/UlanziDeck/Plugins"
 
-if [ ! -d "$NAME/node_modules/ws" ]; then
-  echo "ws 설치 중…"
+if [ ! -d "$NAME/node_modules/ws" ] || [ ! -d "$NAME/node_modules/gifenc" ] || [ ! -d "$NAME/node_modules/@resvg/resvg-wasm" ]; then
+  echo "의존성 설치 중…"
   npm --prefix "$NAME" ci --omit=dev
 fi
 

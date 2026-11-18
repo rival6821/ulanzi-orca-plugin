@@ -6,7 +6,7 @@ Ulanzi D200H용 Ulanzi Studio 플러그인. Orca(Stably AI의 에이전트 개�
 
 ## 명령
 
-- `npm run setup` — 플러그인 폴더에 `ws` 설치 (런타임 의존성은 이것뿐)
+- `npm run setup` — 플러그인 폴더에 런타임 의존성 설치 (`ws`, 그리고 RUNNING GIF용 `@resvg/resvg-wasm`·`gifenc`)
 - `npm test` — 시나리오 테스트. 코드를 바꾸면 반드시 실행
 - `npm run preview` — `test/out/preview.html`로 키 모양 확인. 렌더러를 바꾸면 눈으로 확인
 - `npm run install:local` — 실제 Ulanzi Studio에 복사 설치
@@ -40,21 +40,25 @@ Ulanzi D200H용 Ulanzi Studio 플러그인. Orca(Stably AI의 에이전트 개�
 
 - 키 이름은 `열_행` (`0_0`이 왼쪽 위). 5열 × 3행이고, 아랫줄 오른쪽 두 칸(`3_2`,`4_2`)은 기본 시계 위젯이라 쓸 수 있는 키는 13개.
 - 권장 배치: 위 두 줄 = 세션 슬롯 9 + 더보기(`4_1`), 아랫줄 `0_2..2_2` = 한도 3개.
+- 한도 키를 누르면 모든 한도 키가 남은 %(LEFT) ↔ 사용한 %(USED)로 같이 바뀐다(메모리에만). 조회 오류가 있는 키는 누르면 전환 대신 다시 조회.
 - 한도 키 자동 배정: 3개 이하면 `claude-5h, claude-week, codex-pair`, 4개 이상이면 개별 지표.
 - 슬롯은 행→열 순으로 정렬. 실제 기기에서 키 이름 형식이 다르면 설정의 "슬롯 순서" 수동 지정으로 우회.
 
 ## 디자인 규칙 (AgentDeck 따름)
 
 - 렌더러는 AgentDeck `shared/src/svg-renderers/session-slot-renderer.ts`와 `shared/src/d200h-layout.ts`, 토큰은 `design/tokens.css`에서 옮겨 왔다 (MIT, THIRD-PARTY-NOTICES.md). 새 키 모양을 만들 때도 그쪽 구성과 토큰을 먼저 본다: https://github.com/puritysb/AgentDeck
-- 색은 의미가 하나씩: 청록 #2DD4BF = 작업 중, 주황 #FFA93D = 사람이 필요함(유일하게 강조되는 색), 초록/주황/빨강 = 한도 심각도(사용 70%/90% 기준), 회색 = 정보 없음.
+- 색은 의미가 하나씩: 청록 #2DD4BF = 작업 중, 주황 #FFA93D = 사람이 필요함(유일하게 강조되는 색), 초록 #52D988 = 세션 키에선 방금 끝남(DONE), 초록/주황/빨강 = 한도 심각도(사용 70%/90% 기준), 회색 = 정보 없음.
 - 에이전트·회사 로고는 넣지 않는다. 이름 + AgentDeck의 브랜드 강조색만 쓴다.
 - 키 위 문구는 AgentDeck처럼 짧은 영어 대문자(RUNNING, IDLE, PERMIT?, MORE, 5H, 7D, LEFT). 설정 화면과 문서는 한국어.
 - 키 캔버스는 144×144 SVG, `setBaseDataIcon`에 `data:image/svg+xml;base64,…`로 보낸다(울란지 공식 데모와 같은 방식). 같은 그림이면 다시 보내지 않도록 마지막 data URL을 캐시한다 — SVG 안에 무작위 id를 넣지 말 것.
+- 움직이는 키는 GIF다: RUNNING = 테두리 회전, PERMIT? = 주황 깜빡임(빠르게), DONE = 초록 깜빡임(천천히). DONE은 `worktree ps`의 `stateStartedAt`이 1분 이내인 done이고, 그 키를 누르면(`paneKey@stateStartedAt` 기억) IDLE로 돌아간다. 만드는 법(`gif.js`, AgentDeck과 같은 resvg wasm → gifenc). 정적 SVG를 먼저 보내고, GIF가 준비됐을 때 그 키 그림이 그대로면 `setGifDataIcon`으로 바꿔 끼운다. GIF는 정적 data URL을 키로 캐시. 폰트는 시스템 `AppleSDGothicNeo.ttc`를 읽는다. GIF를 못 만들면 정적 SVG가 그대로 남는다.
+- 세션 키 제목은 22→14px 중 잘리지 않고 들어가는 가장 큰 크기(`NAME_SIZES`). 브랜치·도구 줄과 에이전트 색 점은 없다(작아서 안 읽히고, Claude 점이 PERMIT? 주황과 헷갈림). 에이전트 색은 IDLE 글자에만.
 - 글자 폭은 `render.js`의 `charEm` 추정치로 줄바꿈한다. 한글은 1em. 넘치면 추정치를 고친다.
 
 ## 주의할 점
 
 - Ulanzi Studio를 Finder/Dock에서 띄우면 PATH가 짧아 `orca`(와 그 안의 node)를 못 찾는다. `orca.js`가 로그인 셸 PATH를 합치고 흔한 위치를 찾는다. 사용자가 경로를 직접 지정할 수도 있다.
+- `/usr/local/bin/orca`가 root 소유 0700 심볼릭 링크면 실행은 되지만 Orca 스크립트가 readlink에 실패한다(`Unable to determine Orca.app path from symlink`). 그래서 앱 번들 안 `Contents/Resources/bin/orca`를 1순위로 찾는다.
 - 공통 설정은 여러 키가 각자 저장하므로 `savedAt`이 가장 큰 값이 이긴다. 슬롯 순서·한도 지표만 키별 값.
 - `setSettings`는 액션이 비활성일 때 저장되지 않는다(SDK 제약). 설정은 설정 화면 → `sendParamFromPlugin` 경로로만 받는다.
 - 테스트 전용 환경 변수: `ORCA_SESSIONS_TEST`(키체인·`open -a` 건너뜀), `ORCA_SESSIONS_ORCA_BIN`(가짜 orca 경로). 이 외의 동작을 바꾸는 데 쓰지 말 것.
@@ -64,5 +68,5 @@ Ulanzi D200H용 Ulanzi Studio 플러그인. Orca(Stably AI의 에이전트 개�
 - [ ] 실제 D200H에서 키 이름 형식과 슬롯 순서 확인
 - [ ] 실제 Orca에서 `worktree ps`의 `paneKey`와 `terminal list`의 `tabId:leafId`가 맞물리는지 확인 (안 맞으면 `recordedPaneKey`나 `worktreeId`로 보조 매칭)
 - [ ] Ulanzi Studio가 SVG data URL을 그대로 그리는지 실기기 확인 (안 되면 PNG 래스터화 필요 — AgentDeck은 resvg wasm 사용)
-- [ ] AgentDeck처럼 RUNNING 테두리 회전·PERMIT? 깜빡임 애니메이션 (GIF로 구워 `setGifDataIcon`)
+- [x] RUNNING 회전·PERMIT?/DONE 깜빡임 (GIF) — 실기기에서 `setGifDataIcon`이 도는지 확인 필요
 - [ ] 키 문구 한국어 옵션

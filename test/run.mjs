@@ -43,13 +43,18 @@ for (let r = 0; r < 2; r++) for (let c = 0; c < 5; c++) LAYOUT.push({ key: `${c}
 for (let c = 0; c < 3; c++) LAYOUT.push({ key: `${c}_2`, action: 'usage' });
 
 const icons = {};
+const gifs = {};
 let sock;
 const wss = new WebSocketServer({ port: PORT });
 wss.on('connection', (ws) => {
   sock = ws;
   ws.on('message', (raw) => {
     const m = JSON.parse(raw);
-    if (m.cmd === 'state') for (const s of m.param.statelist) icons[s.key] = s.data;
+    // 정적 그림(type 2)은 icons, 움직이는 GIF(type 3)는 gifs. GIF가 온 뒤에도 icons엔 같은 장면의 SVG가 남는다.
+    if (m.cmd === 'state') for (const s of m.param.statelist) {
+      if (s.type === 3) gifs[s.key] = s.gifdata;
+      else { icons[s.key] = s.data; delete gifs[s.key]; }
+    }
   });
 });
 const send = (o) => sock.send(JSON.stringify(o));
@@ -67,12 +72,15 @@ terminals.push({ handle: 'shell', tabId: 'ts', leafId: 'ls', worktreePath: '/x',
 const agents = titles.map((t, i) => ({
   paneKey: `tab${i}:leaf${i}`, state: states[i], agentType: i % 3 === 1 ? 'codex' : 'claude', conversationName: t,
   toolName: states[i] === 'working' ? 'Bash' : states[i] === 'blocked' ? 'Bash: npm test' : null,
+  // 4번(다크 모드)만 방금 끝남 → DONE으로 깜빡임. 나머지 done은 1시간 전.
+  stateStartedAt: Date.now() - (i === 4 ? 0 : 3600000),
 }));
 
 const results = [];
 const check = (name, cond) => results.push({ name, ok: !!cond });
 const snapshots = [];
-const snap = (title) => snapshots.push({ title, icons: { ...icons } });
+const gifUrls = () => Object.fromEntries(Object.entries(gifs).map(([k, g]) => [k, 'data:image/gif;base64,' + g]));
+const snap = (title) => snapshots.push({ title, icons: { ...icons, ...gifUrls() } });
 
 setState({ terminals, agents });
 const child = spawn(process.execPath, ['--import', path.join(ROOT, 'test/fixtures/mock-fetch.mjs'), path.join(PLUGIN, 'plugin/app.js'), '127.0.0.1', String(PORT), 'ko_KR'], {
@@ -97,11 +105,29 @@ try {
   check('1_0 blocked 세션은 PERMIT? + PERM', svgOf('1_0').includes('PERMIT?') && svgOf('1_0').includes('>PERM<'));
   check('2_0 done 세션은 IDLE', svgOf('2_0').includes('>IDLE<'));
   check('waiting 상태도 RUNNING으로 표시 (0_1)', svgOf('0_1').includes('RUNNING'));
+  check('RUNNING 키는 움직이는 GIF로 바뀜', Buffer.from(gifs['0_0'] || '', 'base64').subarray(0, 6).toString() === 'GIF89a');
+  const isGif = (k) => Buffer.from(gifs[k] || '', 'base64').subarray(0, 6).toString() === 'GIF89a';
+  check('PERMIT? 키도 깜빡이는 GIF', isGif('1_0'));
+  check('방금 끝난 세션은 DONE + GIF (4_0)', svgOf('4_0').includes('>DONE<') && isGif('4_0'));
+  check('오래전에 끝난 세션은 IDLE, GIF 없음 (2_0)', !gifs['2_0']);
+
+  send({ cmd: 'run', uuid: `${P}.slot`, key: '4_0', actionid: 'a4_0' });
+  await sleep(400);
+  check('DONE 키를 누르면 깜빡임이 멈추고 IDLE', svgOf('4_0').includes('>IDLE<') && !gifs['4_0']);
   check('셸 터미널은 숨김', !Object.keys(icons).some((k) => svgOf(k).includes('>zsh<')));
   check('더보기 키에 +2 · 1/2', svgOf('4_1').includes('+2 · 1/2'));
   check('한도 0_2 = Claude 5H 73% 남음', svgOf('0_2').includes('>5H<') && svgOf('0_2').includes('>73%<'));
   check('한도 1_2 = Claude 7D 36% 남음', svgOf('1_2').includes('>7D<') && svgOf('1_2').includes('>36%<'));
   check('한도 2_2 = Codex 5H+7D 묶음', svgOf('2_2').includes('Codex') && svgOf('2_2').includes('>12<') && svgOf('2_2').includes('>0<'));
+
+  send({ cmd: 'run', uuid: `${P}.usage`, key: '0_2', actionid: 'a0_2' });
+  await sleep(300);
+  snap('한도 키를 누른 뒤 (사용한 %)');
+  check('한도 키를 누르면 모든 한도 키가 사용한 %로', svgOf('0_2').includes('>27%<') && svgOf('0_2').includes('>USED<') &&
+    svgOf('1_2').includes('>64%<') && svgOf('2_2').includes('>88<') && svgOf('2_2').includes('>USED<'));
+  send({ cmd: 'run', uuid: `${P}.usage`, key: '2_2', actionid: 'a2_2' });
+  await sleep(300);
+  check('한 번 더 누르면 남은 %로 돌아옴', svgOf('0_2').includes('>73%<') && svgOf('0_2').includes('>LEFT<') && svgOf('2_2').includes('>12<'));
 
   send({ cmd: 'run', uuid: `${P}.more`, key: '4_1', actionid: 'a4_1' });
   await sleep(400);
