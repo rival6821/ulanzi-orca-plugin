@@ -9,7 +9,7 @@ Ulanzi D200H용 Ulanzi Studio 플러그인. Orca(Stably AI의 에이전트 개�
 - `npm run setup` — 플러그인 폴더에 런타임 의존성 설치 (`ws`, 그리고 RUNNING GIF용 `@resvg/resvg-wasm`·`gifenc`)
 - `npm test` — 시나리오 테스트. 코드를 바꾸면 반드시 실행
 - `npm run preview` — `test/out/preview.html`로 키 모양 확인. 렌더러를 바꾸면 눈으로 확인
-- `npm run install:local` — 실제 Ulanzi Studio에 복사 설치
+- `npm run install:local` — 실제 Ulanzi Studio에 복사 설치. 재시작은 `pkill -x UlanziDeck; sleep 4; open -a "Ulanzi Studio"` (프로세스 이름은 `Ulanzi Studio`가 아니라 `UlanziDeck`. 남은 옛 플러그인 node 프로세스가 있으면 `pgrep -fl orcasessions`로 찾아 종료)
 
 ## 구조
 
