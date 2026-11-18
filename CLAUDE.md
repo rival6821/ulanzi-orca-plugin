@@ -25,7 +25,13 @@ Ulanzi D200H용 Ulanzi Studio 플러그인. Orca(Stably AI의 에이전트 개�
 - `orca worktree ps --limit 200 --json` → `result.worktrees[].agents[]`: `paneKey, state(working|blocked|waiting|done), agentType, conversationName, displayName, taskTitle, toolName`
 - 둘은 `paneKey === tabId + ':' + leafId`로 잇는다.
 - 상태 매핑: working·waiting → RUNNING, blocked → PERMIT?, done → IDLE, exitCause/연결 끊김 → ENDED. ps 행이 없으면 `lastOutputAt`으로 RUNNING/IDLE만 추정하고, 주황(승인 필요)은 추정으로 띄우지 않는다.
-- 키를 누르면 `orca terminal switch --terminal <handle>` 후 `open -a Orca`.
+- 키를 짧게 누르면 `orca terminal switch --terminal <handle>` 후 `open -a Orca`.
+- 길게(0.5초) 누르면 세션 슬롯·더보기 키들이 상세 화면이 된다(한도 키는 그대로, 60초 안 누르면 목록으로). 키가 작아 글자 정보 카드는 넣지 않고 누르면 동작하는 버튼만 둔다.
+  - 윗줄: BACK · 세션 · OPEN(`terminal switch`) · MODE(Claude만, Shift+Tab `\x1b[Z`, 이름은 화면 아래 상태 줄을 `parseMode`로) · NEW(`agent launch --agent <같은 에이전트> --worktree path:<같은 워크트리> --focus`)
+  - 아랫줄: 승인 대기 = 화면의 선택지 + ESC, 작업 중 = STOP(Esc), 쉬는 중 = 빠른 답장(설정 `replies`, 최대 4개, `terminal send --text … --enter`)
+  - 선택지는 `orca terminal read --screen`의 번호 줄(`1. Yes` …)을 `parseOptions`로 읽는다. 누르면 `terminal send --text <번호>`, ESC/STOP은 `--text $'\x1b'`.
+  - 보내기 직전에 `worktree ps`를 다시 읽어 같은 승인 요청(`paneKey@stateStartedAt`)이 아직 blocked일 때만 보낸다. 이 확인은 빼지 말 것.
+  - 짧게/길게는 `keydown`/`keyup`으로 가르고, keydown을 보낸 적 있는 키는 `run`을 무시한다(run만 오는 호스트·테스트는 run = 짧게).
 - 핸들은 Orca 재시작 시 바뀐다. 매 폴링마다 목록을 새로 받으므로 저장하지 않는다.
 - Orca 소스(참고용): https://github.com/stablyai/orca — CLI 스펙은 `src/cli/specs/`, 결과 타입은 `src/shared/terminal/runtime/runtime-terminal-contracts.ts`, `src/shared/worktree/catalog/runtime-worktree-contracts.ts`
 
@@ -51,7 +57,7 @@ Ulanzi D200H용 Ulanzi Studio 플러그인. Orca(Stably AI의 에이전트 개�
 - 에이전트·회사 로고는 넣지 않는다. 이름 + AgentDeck의 브랜드 강조색만 쓴다.
 - 키 위 문구는 AgentDeck처럼 짧은 영어 대문자(RUNNING, IDLE, PERMIT?, DONE, MORE, 5H, 7D, USED, LEFT). 설정 화면과 문서는 한국어.
 - 키 캔버스는 144×144 SVG, `setBaseDataIcon`에 `data:image/svg+xml;base64,…`로 보낸다(울란지 공식 데모와 같은 방식). 같은 그림이면 다시 보내지 않도록 마지막 data URL을 캐시한다 — SVG 안에 무작위 id를 넣지 말 것.
-- 움직이는 키는 GIF다: RUNNING = 테두리 회전, PERMIT? = 주황 깜빡임(빠르게), DONE = 초록 깜빡임(천천히). DONE은 `worktree ps`의 `stateStartedAt`이 1분 이내인 done이고, 그 키를 누르면(`paneKey@stateStartedAt` 기억) IDLE로 돌아간다. 만드는 법(`gif.js`, AgentDeck과 같은 resvg wasm → gifenc). 정적 SVG를 먼저 보내고, GIF가 준비됐을 때 그 키 그림이 그대로면 `setGifDataIcon`으로 바꿔 끼운다. GIF는 정적 data URL을 키로 캐시. 폰트는 시스템 `AppleSDGothicNeo.ttc`를 읽는다. GIF를 못 만들면 정적 SVG가 그대로 남는다.
+- 움직이는 키는 GIF다: RUNNING = 테두리 회전, PERMIT? = 주황 깜빡임(빠르게), DONE = 초록 깜빡임(천천히). DONE은 `worktree ps`의 `stateStartedAt`이 5분 이내인 done이고, 그 키를 누르면(`paneKey@stateStartedAt` 기억) IDLE로 돌아간다. 만드는 법(`gif.js`, AgentDeck과 같은 resvg wasm → gifenc). 정적 SVG를 먼저 보내고, GIF가 준비됐을 때 그 키 그림이 그대로면 `setGifDataIcon`으로 바꿔 끼운다. GIF는 정적 data URL을 키로 캐시. 폰트는 시스템 `AppleSDGothicNeo.ttc`를 읽는다. GIF를 못 만들면 정적 SVG가 그대로 남는다.
 - 세션 키 제목은 22→14px 중 잘리지 않고 들어가는 가장 큰 크기(`NAME_SIZES`). 브랜치·도구 줄과 에이전트 색 점은 없다(작아서 안 읽히고, Claude 점이 PERMIT? 주황과 헷갈림). 에이전트 색은 IDLE 글자에만.
 - 글자 폭은 `render.js`의 `charEm` 추정치로 줄바꿈한다. 한글은 1em. 넘치면 추정치를 고친다.
 
@@ -69,4 +75,6 @@ Ulanzi D200H용 Ulanzi Studio 플러그인. Orca(Stably AI의 에이전트 개�
 - [ ] 실제 Orca에서 `worktree ps`의 `paneKey`와 `terminal list`의 `tabId:leafId`가 맞물리는지 확인 (안 맞으면 `recordedPaneKey`나 `worktreeId`로 보조 매칭)
 - [ ] Ulanzi Studio가 SVG data URL을 그대로 그리는지 실기기 확인 (안 되면 PNG 래스터화 필요 — AgentDeck은 resvg wasm 사용)
 - [x] RUNNING 회전·PERMIT?/DONE 깜빡임 (GIF) — 실기기에서 `setGifDataIcon`이 도는지 확인 필요
+- [ ] 실제 Claude Code·Codex 승인 화면에서 숫자 키 하나로 선택이 되는지, `--screen` 줄 모양이 `parseOptions`에 맞는지 확인
+- [ ] 실기기에서 keydown/keyup/run 순서 확인 (길게 누를 때 짧은 동작이 같이 나가지 않는지)
 - [ ] 키 문구 한국어 옵션

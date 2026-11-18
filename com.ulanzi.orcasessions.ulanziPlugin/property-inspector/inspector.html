@@ -79,7 +79,7 @@
             <option value="30">30</option>
           </select>
         </div>
-        <p class="os-note" data-localize="Usage note">Reads the login that Claude Code and Codex already use, and sends it only to their own usage endpoints. Press the key to check now.</p>
+        <p class="os-note" data-localize="Usage note">Reads the login that Claude Code and Codex already use, and sends it only to their own usage endpoints. Press the key to switch between used and remaining.</p>
       </fieldset>
 
       <!-- 세션 슬롯 + 더보기 공통 -->
@@ -99,6 +99,11 @@
             <option value="off" data-localize="Switch only">Switch only</option>
           </select>
         </div>
+        <div class="uspi-item">
+          <div class="uspi-item-label" data-localize>Quick replies</div>
+          <textarea class="uspi-item-value" name="replies" rows="4" spellcheck="false"></textarea>
+        </div>
+        <p class="os-note" data-localize="Replies note">Hold a session key to open its detail page. When the agent is idle, these appear as buttons (one per line, up to 4).</p>
         <div class="uspi-item">
           <div class="uspi-item-label" data-localize>Refresh every</div>
           <div class="uspi-item-value os-row-inline">
@@ -168,6 +173,7 @@
       if (c.workingSec !== undefined) out.workingSec = String(c.workingSec);
       if (typeof c.orcaPath === 'string') out.orcaPath = c.orcaPath;
       if (c.usageMin) out.usageMin = String(c.usageMin);
+      if (Array.isArray(c.replies)) out.replies = c.replies.join('\n');
       return out;
     }
 
@@ -190,6 +196,7 @@
       if ('pollSec' in v) out.pollMs = Math.max(1, Number(v.pollSec) || 2) * 1000;
       if ('workingSec' in v) out.workingSec = Math.max(1, Number(v.workingSec) || 5);
       if ('orcaPath' in v) out.orcaPath = (v.orcaPath || '').trim();
+      if ('replies' in v) out.replies = String(v.replies || '');
       return out;
     }
 

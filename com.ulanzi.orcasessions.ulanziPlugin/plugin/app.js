@@ -6,11 +6,12 @@
 //  - 남은 한도 : Claude / Codex의 5시간·주간 한도 중 남은 양.
 
 import { UlanziApi } from './ulanzi/index.js';
-import { OrcaClient } from './orca.js';
+import { OrcaClient, parseOptions, parseMode } from './orca.js';
 import { UsageStore, METRICS } from './usage.js';
 import {
   renderSession, renderEmpty, renderMore, renderError, renderMoreKey, renderNoSessions,
   renderUsageGauge, renderUsagePairGauge, sessionFrames, isAnimated, ORBIT_DELAY_MS,
+  renderButton, renderOption, renderReply,
 } from './render.js';
 import { framesToGif } from './gif.js';
 
@@ -31,6 +32,7 @@ const DEFAULT_CONFIG = {
   workingSec: 5,
   bringToFront: 'on',
   usageMin: 5,
+  replies: ['계속해줘', '커밋해줘', '/compact'], // 상세 화면 빠른 답장 (최대 4개)
   savedAt: 0,
 };
 
@@ -92,8 +94,8 @@ function send(ctx, dataUrl, makeGif) {
 }
 const gifCache = new Map(); // 정적 data URL → Promise<GIF base64|null>
 
-// 방금 끝난(done) 세션은 1분 동안, 또는 키를 눌러 확인할 때까지 DONE으로 깜빡인다.
-const DONE_BLINK_MS = 60 * 1000;
+// 방금 끝난(done) 세션은 5분 동안, 또는 키를 눌러 확인할 때까지 DONE으로 깜빡인다.
+const DONE_BLINK_MS = 5 * 60 * 1000;
 const seenDone = new Set(); // `${paneKey}@${stateStartedAt}` — 확인한 완료
 
 // ───────────────────────── 설정 ─────────────────────────
@@ -105,6 +107,7 @@ function normalizeConfig(p) {
   if (p.filter === 'agents' || p.filter === 'all') c.filter = p.filter;
   if (p.workingSec !== undefined) c.workingSec = clamp(Number(p.workingSec) || DEFAULT_CONFIG.workingSec, 1, 120);
   if (p.bringToFront !== undefined) c.bringToFront = p.bringToFront === 'off' ? 'off' : 'on';
+  if (typeof p.replies === 'string') c.replies = p.replies.split('\n').map((l) => l.trim().slice(0, 500)).filter(Boolean).slice(0, 4);
   if (p.usageMin !== undefined) c.usageMin = clamp(Number(p.usageMin) || DEFAULT_CONFIG.usageMin, 2, 60);
   c.savedAt = Number(p.savedAt) || c.savedAt;
   return c;
@@ -249,7 +252,10 @@ function renderSessions() {
   const moreCtxs = ordered(A_MORE);
   const now = Date.now();
 
-  for (const ctx of ctxs) assignment.delete(ctx);
+  for (const ctx of [...ctxs, ...moreCtxs]) assignment.delete(ctx);
+
+  if (detail && !lastError && renderDetail(now)) return;
+  detail = null;
 
   if (lastError) {
     ctxs.forEach((ctx, i) => {
@@ -294,6 +300,133 @@ function renderSessions() {
   });
 
   moreCtxs.forEach((ctx) => send(ctx, renderMoreKey(pageInfo)));
+}
+
+// ───────────────────────── 상세 화면 ─────────────────────────
+// 세션 키를 길게 누르면 세션 슬롯·더보기 키들이 그 세션의 상세 화면이 된다(한도 키는 그대로).
+// 키가 작아 글자 정보는 넣지 않고, 누르면 실제로 무언가 하는 버튼만 둔다.
+//   윗줄: BACK · 세션 · OPEN · MODE(Claude만) · NEW
+//   아랫줄: 승인 대기 = 화면의 선택지 + ESC / 작업 중 = STOP / 쉬는 중 = 빠른 답장
+
+const LONG_PRESS_MS = 500;
+const DETAIL_IDLE_MS = 60 * 1000; // 아무것도 안 누르면 목록으로 돌아간다
+const ESC = '\x1b';
+const SHIFT_TAB = '\x1b[Z';
+
+/** @type {{handle:string, touchedAt:number, screenKey:string|null, options:{n:number,label:string}[], mode:string}|null} */
+let detail = null;
+
+const requestKey = (row) => `${row.paneKey}@${row.stateStartedAt}`;
+
+/** 세션 슬롯 + 더보기 키를 실제 위치(행→열) 순으로. 상세 화면은 슬롯 순서 지정을 무시한다. */
+function gridCtxs() {
+  return [...keysOf(A_SLOT), ...keysOf(A_MORE)]
+    .sort((a, b) => compareArrays(sortKeyFor({ key: a[1].key }), sortKeyFor({ key: b[1].key })) || a[0].localeCompare(b[0]))
+    .map(([ctx]) => ctx);
+}
+
+/** 터미널 화면에서 승인 선택지와 Claude 권한 모드를 읽는다. 상태가 바뀌면(stateStartedAt) 다시 읽는다. */
+function loadScreen(handle, key) {
+  detail.screenKey = key;
+  orca.readScreen(handle)
+    .then((lines) => {
+      if (detail?.screenKey !== key) return;
+      detail.options = parseOptions(lines.slice(-30));
+      detail.mode = parseMode(lines);
+      renderSessions();
+    })
+    .catch(() => {});
+}
+
+/** @returns {boolean} 그렸으면 true, 세션이 사라졌거나 시간이 지나 목록으로 돌아가야 하면 false */
+function renderDetail(now) {
+  const t = sessions.get(detail.handle);
+  if (!t || now - detail.touchedAt > DETAIL_IDLE_MS) return false;
+  const row = agentRowFor(t);
+  const v = viewFor(t, now);
+  const key = row ? requestKey(row) : t.handle;
+  if (detail.screenKey !== key) {
+    detail.options = [];
+    loadScreen(t.handle, key);
+  }
+  const agent = v.agent || 'claude';
+  const isClaude = agent === 'claude';
+  const cells = [
+    { type: 'back', icon: renderButton({ big: '←', label: 'BACK' }) },
+    { type: 'none', icon: renderSession(v), gif: isAnimated(v) && (() => framesToGif(sessionFrames(v), ORBIT_DELAY_MS)) },
+    { type: 'open', icon: renderButton({ big: '↗', label: 'OPEN' }) },
+    isClaude && v.tone !== 'ended'
+      ? { type: 'keys', text: SHIFT_TAB, reread: true, icon: renderButton({ big: '⇄', label: detail.mode || 'MODE' }) }
+      : { type: 'none', icon: renderEmpty() },
+    t.worktreePath
+      ? { type: 'new', agent, path: t.worktreePath, icon: renderButton({ big: '+', label: `NEW ${agent.toUpperCase()}` }) }
+      : { type: 'none', icon: renderEmpty() },
+  ];
+  if (v.tone === 'awaiting' && row) {
+    const guard = { paneKey: row.paneKey, request: requestKey(row) };
+    for (const o of detail.options) cells.push({ type: 'keys', text: String(o.n), guard, icon: renderOption(o.n, o.label) });
+    cells.push({ type: 'keys', text: ESC, guard, icon: renderButton({ big: 'ESC', label: 'CANCEL', tone: 'danger' }) });
+  } else if (v.tone === 'working') {
+    cells.push({ type: 'keys', text: ESC, icon: renderButton({ big: '■', label: 'STOP', tone: 'danger' }) });
+  } else if (v.tone === 'idle') {
+    for (const text of config.replies) cells.push({ type: 'reply', text, icon: renderReply(text) });
+  }
+  gridCtxs().forEach((ctx, i) => {
+    const c = cells[i];
+    assignment.set(ctx, { ...(c || { type: 'none' }), detail: true, handle: t.handle });
+    send(ctx, c ? c.icon : renderEmpty(), c?.gif);
+  });
+  return true;
+}
+
+function openDetail(handle) {
+  detail = { handle, touchedAt: Date.now(), screenKey: null, options: [], mode: '' };
+  renderSessions();
+}
+
+async function onDetailPress(ctx, a) {
+  detail.touchedAt = Date.now();
+  if (a.type === 'back') {
+    detail = null;
+    renderSessions();
+  } else if (a.type === 'open') {
+    await focusSession(ctx, a.handle);
+  } else if (a.type === 'new') {
+    try {
+      await orca.launchAgent(a.agent, a.path);
+      detail = null; // 새 세션이 목록에 들어온다
+    } catch (e) {
+      $UD.showAlert(ctx);
+      $UD.toast(e.message);
+    }
+    pollSessions();
+  } else if (a.type === 'reply') {
+    try {
+      await orca.sendPrompt(a.handle, a.text);
+    } catch (e) {
+      $UD.showAlert(ctx);
+      $UD.logMessage(`send 실패 ${a.handle}: ${e.message}`, 'warn');
+    }
+    setTimeout(pollSessions, 700);
+  } else if (a.type === 'keys') {
+    // 보내기 직전에 Orca에 다시 물어서, 화면에 띄운 그 승인 요청이 아직 그대로일 때만 보낸다.
+    if (a.guard) {
+      const row = (await orca.listAgents()).get(a.guard.paneKey);
+      if (!row || row.state !== 'blocked' || requestKey(row) !== a.guard.request) {
+        $UD.toast('승인 요청이 바뀌었습니다. 화면을 다시 확인하세요.');
+        pollSessions();
+        return;
+      }
+    }
+    try {
+      await orca.sendKeys(a.handle, a.text);
+    } catch (e) {
+      $UD.showAlert(ctx);
+      $UD.logMessage(`send 실패 ${a.handle}: ${e.message}`, 'warn');
+    }
+    if (a.reread) setTimeout(() => detail && loadScreen(a.handle, detail.screenKey), 400); // 바뀐 모드를 다시 읽는다
+    setTimeout(pollSessions, 700);
+  }
 }
 
 // ───────────────────────── 남은 한도 ─────────────────────────
@@ -479,10 +612,61 @@ $UD.onSendToPlugin((jsn) => {
   pushStatusToPI();
 });
 
-$UD.onRun(async (jsn) => {
+async function focusSession(ctx, handle) {
+  try {
+    await orca.focusTerminal(handle);
+    if (config.bringToFront === 'on') await orca.activateApp();
+  } catch (e) {
+    $UD.showAlert(ctx);
+    $UD.logMessage(`focus 실패 ${handle}: ${e.message}`, 'warn');
+    pollSessions();
+  }
+}
+
+/** 길게 누름. 세션 키면 상세 화면을 열고 true. 아니면 false(뗄 때 짧게 누른 것으로 처리). */
+function onLongPress(ctx) {
+  const a = assignment.get(ctx);
+  if (a?.type !== 'session' || a.detail) return false;
+  openDetail(a.handle);
+  return true;
+}
+
+// 누르기 판정: keydown/keyup이 오면 그걸로 짧게/길게를 가르고, 같은 키의 run은 무시한다.
+// keydown을 한 번도 안 보낸 키(호스트가 run만 보내는 경우)는 run을 짧게 누름으로 쓴다.
+const hasKeyEvents = new Set();
+const longTimers = new Map();
+const longFired = new Set();
+
+$UD.onKeyDown((jsn) => {
   const ctx = jsn.context;
   if (!keys.has(ctx)) $UD.emit('add', jsn);
+  hasKeyEvents.add(ctx);
+  clearTimeout(longTimers.get(ctx));
+  longFired.delete(ctx);
+  longTimers.set(ctx, setTimeout(() => {
+    longTimers.delete(ctx);
+    if (onLongPress(ctx)) longFired.add(ctx);
+  }, LONG_PRESS_MS));
+});
+
+$UD.onKeyUp((jsn) => {
+  const ctx = jsn.context;
+  clearTimeout(longTimers.get(ctx));
+  longTimers.delete(ctx);
+  if (!longFired.delete(ctx)) onPress(ctx).catch(() => {});
+});
+
+$UD.onRun((jsn) => {
+  const ctx = jsn.context;
+  if (!keys.has(ctx)) $UD.emit('add', jsn);
+  if (hasKeyEvents.has(ctx)) return;
+  onPress(ctx).catch(() => {});
+});
+
+async function onPress(ctx) {
   const action = actionOf(ctx);
+  const a = assignment.get(ctx);
+  if (detail && a?.detail) return onDetailPress(ctx, a);
 
   if (action === A_MORE) {
     page += 1;
@@ -504,7 +688,6 @@ $UD.onRun(async (jsn) => {
     return;
   }
 
-  const a = assignment.get(ctx);
   if (!a) return;
   if (a.type === 'more') {
     page += 1;
@@ -521,16 +704,9 @@ $UD.onRun(async (jsn) => {
       seenDone.add(v.doneId); // 확인했으니 깜빡임을 멈춘다
       renderSessions();
     }
-    try {
-      await orca.focusTerminal(a.handle);
-      if (config.bringToFront === 'on') await orca.activateApp();
-    } catch (e) {
-      $UD.showAlert(ctx);
-      $UD.logMessage(`focus 실패 ${a.handle}: ${e.message}`, 'warn');
-      pollSessions();
-    }
+    await focusSession(ctx, a.handle);
   }
-});
+}
 
 process.on('uncaughtException', (e) => {
   try {

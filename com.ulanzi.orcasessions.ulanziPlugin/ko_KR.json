@@ -39,8 +39,10 @@
     "Codex 5-hour": "Codex 5시간",
     "Codex weekly": "Codex 주간",
     "Check limits every": "한도 확인 주기(분)",
-    "Usage note": "Claude Code와 Codex에 이미 로그인된 정보를 읽어서 각 회사의 사용량 조회 주소로만 보냅니다. 키를 누르면 바로 다시 확인합니다.",
+    "Usage note": "Claude Code와 Codex에 이미 로그인된 정보를 읽어서 각 회사의 사용량 조회 주소로만 보냅니다. 키를 누르면 사용한 % ↔ 남은 %가 바뀝니다.",
     "Claude 5-hour + weekly": "Claude 5시간 + 주간",
-    "Codex 5-hour + weekly": "Codex 5시간 + 주간"
+    "Codex 5-hour + weekly": "Codex 5시간 + 주간",
+    "Quick replies": "빠른 답장",
+    "Replies note": "세션 키를 길게 누르면 상세 화면이 열립니다. 에이전트가 쉬고 있을 때 이 문구들이 버튼으로 나옵니다 (한 줄에 하나, 최대 4개)."
   }
 }

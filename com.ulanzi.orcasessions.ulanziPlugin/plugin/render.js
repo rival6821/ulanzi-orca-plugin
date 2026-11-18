@@ -375,3 +375,38 @@ export function renderUsagePairGauge(provider, rows, showUsed = false) {
   const mode = `<text x="132" y="${H / 2 + 51}" text-anchor="end" font-family="${esc(FONT_MONO)}" font-size="11" font-weight="bold" fill="${UI.hudSubtext}">${showUsed ? 'USED' : 'LEFT'}</text>`;
   return toDataUrl(svgOpen + bg + divider + body + brandTag(provider, 132, 51, 11, false) + mode + `</svg>`);
 }
+
+// ── 세션 상세 화면 (세션 키를 길게 누르면) ──
+// 구성은 AgentDeck의 detail 화면(BACK · 세션 · 선택지 · STOP/ESC)을 따르고, 글자 정보 카드는 키가 작아 넣지 않는다.
+
+const BTN = {
+  muted: { fg: '#E2E8F0', sub: '#94A3B8' },
+  attn: { fg: UI.attn, sub: '#FCD34D' },
+  danger: { fg: UI.error, sub: '#FCA5A5' },
+};
+
+/** 큰 기호 + 아래 짧은 이름 (BACK, OPEN, STOP, ESC) */
+export function renderButton({ big, label, tone = 'muted' }) {
+  const c = BTN[tone] || BTN.muted;
+  const bigSize = textW(big, 44) > 100 ? 30 : 44;
+  return toDataUrl(svgFrame('#0a0a0c',
+    `<text x="72" y="80" text-anchor="middle" font-family="${esc(FONT_UI)}" font-size="${bigSize}" font-weight="800" fill="${c.fg}">${esc(big)}</text>` +
+    `<text x="72" y="116" text-anchor="middle" font-family="${esc(FONT_UI)}" font-size="14" font-weight="800" fill="${c.sub}">${esc(fit(label, 116, 14))}</text>`));
+}
+
+/** 승인 선택지: 왼쪽 위 큰 번호 + 선택지 문구 */
+export function renderOption(n, label) {
+  const lines = wrapByWidth(label, 108, 13, 4);
+  return toDataUrl(svgFrame('#1a1206',
+    `<rect x="8" y="8" width="128" height="128" rx="12" fill="none" stroke="${UI.attn}" stroke-width="2" opacity="0.7"/>` +
+    `<text x="20" y="48" font-family="${esc(FONT_UI)}" font-size="34" font-weight="800" fill="${UI.attn}">${esc(n)}</text>` +
+    lines.map((l, i) => `<text x="20" y="${74 + i * 16}" font-family="${esc(FONT_UI)}" font-size="13" font-weight="600" fill="${UI.hudText}">${esc(l)}</text>`).join('')));
+}
+
+/** 빠른 답장: 위에 작은 REPLY, 아래 보낼 문구 */
+export function renderReply(text) {
+  const lines = wrapByWidth(text, 108, 16, 3);
+  return toDataUrl(svgFrame('#0a0a0c',
+    `<text x="18" y="32" font-family="${esc(FONT_UI)}" font-size="11" font-weight="800" fill="${UI.hudSubtext}">REPLY</text>` +
+    lines.map((l, i) => `<text x="18" y="${64 + i * 20}" font-family="${esc(FONT_UI)}" font-size="16" font-weight="700" fill="${UI.hudText}">${esc(l)}</text>`).join('')));
+}

@@ -58,6 +58,15 @@ wss.on('connection', (ws) => {
   });
 });
 const send = (o) => sock.send(JSON.stringify(o));
+// 실제 기기처럼 keydown → (ms) → keyup. 0.5초 이상이면 길게 누름.
+const press = async (key, ms = 50, action = 'slot') => {
+  const m = { uuid: `${P}.${action}`, key, actionid: 'a' + key };
+  send({ cmd: 'keydown', ...m });
+  await sleep(ms);
+  send({ cmd: 'keyup', ...m });
+  await sleep(400);
+};
+const calls = () => fs.readFileSync(LOG, 'utf8');
 const svgOf = (key) => (icons[key] ? Buffer.from(icons[key].split(',')[1], 'base64').toString('utf8') : '');
 
 // ── 시나리오 데이터 ──
@@ -82,7 +91,9 @@ const snapshots = [];
 const gifUrls = () => Object.fromEntries(Object.entries(gifs).map(([k, g]) => [k, 'data:image/gif;base64,' + g]));
 const snap = (title) => snapshots.push({ title, icons: { ...icons, ...gifUrls() } });
 
-setState({ terminals, agents });
+// 1번(blocked, Codex) 터미널에 보이는 승인 화면
+const screens = { h0: ['> 작업 중…', '', '  ⏸ plan mode on (shift+tab to cycle)'], h1: ['Allow command?', '  npm test', '› 1. Yes, proceed (y)', "  2. Yes, and don't ask again for this command (a)", '  3. No, and tell Codex what to do differently (esc)'] };
+setState({ terminals, agents, screens });
 const child = spawn(process.execPath, ['--import', path.join(ROOT, 'test/fixtures/mock-fetch.mjs'), path.join(PLUGIN, 'plugin/app.js'), '127.0.0.1', String(PORT), 'ko_KR'], {
   env: {
     ...process.env, HOME: FAKE_HOME, ORCA_SESSIONS_TEST: '1',
@@ -129,15 +140,51 @@ try {
   await sleep(300);
   check('한 번 더 누르면 사용한 %로 돌아옴', svgOf('0_2').includes('>27%<') && svgOf('0_2').includes('>USED<') && svgOf('2_2').includes('>88<'));
 
+  // ── 상세 화면 ──
+  await press('1_0', 700);
+  snap('PERMIT? 세션(Codex)을 길게 누른 상세 화면');
+  check('길게 누르면 상세 화면: BACK · 세션 · OPEN · (Codex는 MODE 없음) · NEW', svgOf('0_0').includes('>BACK<') && svgOf('1_0').includes('PERMIT?') &&
+    svgOf('2_0').includes('>OPEN<') && !svgOf('3_0').includes('<text') && svgOf('4_0').includes('NEW CODEX'));
+  check('화면에서 읽은 승인 선택지 + ESC가 아랫줄에', svgOf('0_1').includes('>1<') && svgOf('0_1').includes('Yes, proceed') &&
+    svgOf('2_1').includes('>3<') && !svgOf('2_1').includes('(esc)') && svgOf('3_1').includes('>ESC<'));
+  check('길게 누르면 Orca 전환은 하지 않음', !calls().includes('terminal switch --terminal h1'));
+  check('상세 화면에서도 한도 키는 그대로', svgOf('0_2').includes('>27%<'));
+  await press('0_1');
+  check('선택지를 누르면 그 번호를 보냄', calls().includes('terminal send --terminal h1 --text 1'));
+  setState({ terminals, agents: agents.map((a, i) => (i === 1 ? { ...a, stateStartedAt: Date.now() } : a)), screens });
+  await press('1_1');
+  check('그사이 승인 요청이 바뀌었으면 보내지 않음', !calls().includes('terminal send --terminal h1 --text 2'));
+  await press('4_0');
+  check('NEW는 같은 워크트리에 같은 에이전트를 띄움', calls().includes('agent launch --agent codex --worktree path:/Users/me/dev/app-1 --focus'));
+  check('NEW 뒤에는 목록으로', svgOf('0_0').includes('RUNNING'));
+
+  await press('0_0', 700);
+  snap('작업 중 세션(Claude) 상세 화면');
+  check('Claude 세션은 MODE에 지금 모드(PLAN)', svgOf('3_0').includes('>PLAN<'));
+  check('작업 중 세션 상세에는 STOP', svgOf('0_1').includes('>STOP<'));
+  await press('3_0');
+  check('MODE는 Shift+Tab을 보냄', calls().includes('terminal send --terminal h0 --text \x1b[Z'));
+  await press('0_1');
+  check('STOP은 Esc를 보냄', calls().includes('terminal send --terminal h0 --text \x1b --json'));
+  await press('0_0');
+  check('BACK을 누르면 목록으로', svgOf('0_0').includes('RUNNING') && svgOf('4_1').includes('MORE'));
+
+  await press('2_0', 700);
+  snap('쉬는 세션 상세 화면 (빠른 답장)');
+  check('쉬는 세션 아랫줄에 빠른 답장', svgOf('0_1').includes('>REPLY<') && svgOf('0_1').includes('계속해줘') && svgOf('2_1').includes('/compact'));
+  await press('1_1');
+  check('빠른 답장은 문구 + Enter를 보냄', calls().includes('terminal send --terminal h2 --text 커밋해줘 --enter'));
+  await press('0_0');
+
   send({ cmd: 'run', uuid: `${P}.more`, key: '4_1', actionid: 'a4_1' });
   await sleep(400);
   snap('더보기를 누른 뒤 (2페이지)');
   check('2페이지 첫 칸은 10번째 세션', svgOf('0_0').includes('온보딩'));
   check('더보기 키에 2/2', svgOf('4_1').includes('2/2'));
 
-  send({ cmd: 'run', uuid: `${P}.slot`, key: '0_0', actionid: 'a0_0' });
-  await sleep(600);
-  check('세션 키를 누르면 terminal switch 호출', fs.readFileSync(LOG, 'utf8').includes('terminal switch --terminal h9'));
+  await press('0_0');
+  await sleep(200);
+  check('세션 키를 짧게 누르면 terminal switch 호출', calls().includes('terminal switch --terminal h9'));
 
   setState({ terminals: terminals.slice(0, 2), agents: agents.slice(0, 2) });
   await sleep(2600);

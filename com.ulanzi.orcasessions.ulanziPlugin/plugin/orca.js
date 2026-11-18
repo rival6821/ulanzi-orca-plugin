@@ -162,6 +162,27 @@ export class OrcaClient {
     return this.call(['terminal', 'switch', '--terminal', handle]);
   }
 
+  /** 터미널에 실제로 보이는 화면의 줄들 */
+  async readScreen(handle) {
+    const result = await this.call(['terminal', 'read', '--terminal', handle, '--screen', '--limit', '60']);
+    return Array.isArray(result?.terminal?.tail) ? result.terminal.tail : [];
+  }
+
+  /** 키 입력을 그대로 보낸다 (Enter 없이). 숫자 = 선택지, '\x1b' = Esc, '\x1b[Z' = Shift+Tab */
+  async sendKeys(handle, text) {
+    return this.call(['terminal', 'send', '--terminal', handle, '--text', text]);
+  }
+
+  /** 에이전트에게 문구를 보내고 Enter (Orca가 붙여넣기로 감싸 준다) */
+  async sendPrompt(handle, text) {
+    return this.call(['terminal', 'send', '--terminal', handle, '--text', text, '--enter']);
+  }
+
+  /** 같은 워크트리에 같은 에이전트(claude, codex …)를 새로 띄우고 그 탭으로 전환 */
+  async launchAgent(agent, worktreePath) {
+    return this.call(['agent', 'launch', '--agent', agent, '--worktree', `path:${worktreePath}`, '--focus'], { timeout: 20000 });
+  }
+
   async activateApp() {
     // Orca 창을 앞으로. 실패해도 무시한다.
     if (process.env.ORCA_SESSIONS_TEST) return;
@@ -174,6 +195,37 @@ export class OrcaError extends Error {
     super(message);
     this.code = code;
   }
+}
+
+/**
+ * 승인 화면의 번호 선택지를 읽는다. Claude Code·Codex 모두 이런 모양이다:
+ *   ❯ 1. Yes
+ *     2. Yes, and don't ask again for …
+ *     3. No, and tell Claude what to do differently (esc)
+ * 1부터 이어지는 마지막 묶음(2개 이상)만 쓴다. 못 읽으면 빈 배열.
+ */
+export function parseOptions(lines) {
+  let group = [];
+  let last = [];
+  for (const line of lines) {
+    const m = /^[\s│|]*(?:[❯›>▶➤→*]\s*)?(\d)[.)]\s+(.+?)[\s│|]*$/u.exec(String(line));
+    if (!m) continue;
+    const n = Number(m[1]);
+    if (n === 1) group = [];
+    else if (!group.length || group[group.length - 1].n !== n - 1) continue;
+    group.push({ n, label: m[2].replace(/\s*\((?:esc|[a-z])\)\s*$/i, '').trim() });
+    if (group.length >= 2) last = group;
+  }
+  return last;
+}
+
+/** Claude Code 아래 상태 줄의 권한 모드 (Shift+Tab으로 돈다) */
+export function parseMode(lines) {
+  const tail = lines.slice(-12).join('\n');
+  if (/plan mode on/i.test(tail)) return 'PLAN';
+  if (/accept edits on/i.test(tail)) return 'AUTO EDIT';
+  if (/bypass permissions on/i.test(tail)) return 'BYPASS';
+  return 'DEFAULT';
 }
 
 function parseJson(text) {

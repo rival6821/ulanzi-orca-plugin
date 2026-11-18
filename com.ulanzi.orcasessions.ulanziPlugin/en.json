@@ -39,8 +39,10 @@
     "Codex 5-hour": "Codex 5-hour",
     "Codex weekly": "Codex weekly",
     "Check limits every": "Check limits every (min)",
-    "Usage note": "Reads the login that Claude Code and Codex already use, and sends it only to their own usage endpoints. Press the key to check now.",
+    "Usage note": "Reads the login that Claude Code and Codex already use, and sends it only to their own usage endpoints. Press the key to switch between used and remaining.",
     "Claude 5-hour + weekly": "Claude 5-hour + weekly",
-    "Codex 5-hour + weekly": "Codex 5-hour + weekly"
+    "Codex 5-hour + weekly": "Codex 5-hour + weekly",
+    "Quick replies": "Quick replies",
+    "Replies note": "Hold a session key to open its detail page. When the agent is idle, these appear as buttons (one per line, up to 4)."
   }
 }

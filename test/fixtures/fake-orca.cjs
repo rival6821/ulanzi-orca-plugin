@@ -17,6 +17,9 @@ if (group === 'terminal' && cmd === 'list') {
   out({ ok: true, result: { terminals: st.terminals || [], totalCount: (st.terminals || []).length, truncated: false } });
 } else if (group === 'worktree' && cmd === 'ps') {
   out({ ok: true, result: { worktrees: [{ worktreeId: 'w', path: '/w', agents: st.agents || [] }] } });
+} else if (group === 'terminal' && cmd === 'read') {
+  const h = args[args.indexOf('--terminal') + 1];
+  out({ ok: true, result: { terminal: { handle: h, status: 'running', source: 'screen', tail: (st.screens || {})[h] || [] } } });
 } else if (group === 'terminal' && cmd === 'switch') {
   const h = args[args.indexOf('--terminal') + 1];
   if (!(st.terminals || []).some((t) => t.handle === h)) {
