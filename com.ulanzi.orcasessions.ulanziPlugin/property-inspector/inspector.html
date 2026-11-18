@@ -82,6 +82,11 @@
         <p class="os-note" data-localize="Usage note">Reads the login that Claude Code and Codex already use, and sends it only to their own usage endpoints. Press the key to switch between used and remaining.</p>
       </fieldset>
 
+      <!-- 버디 전용 -->
+      <fieldset data-for="buddy" style="border:0;margin:0;padding:0">
+        <p class="os-note" data-localize="Buddy note">Reacts to all sessions: waves when someone needs you, types while agents work, celebrates when one finishes, dozes when all are idle, sweats when a limit is nearly used up. Press to jump to the most urgent session.</p>
+      </fieldset>
+
       <!-- 세션 슬롯 + 더보기 공통 -->
       <fieldset data-for="slot more" style="border:0;margin:0;padding:0">
         <p class="os-note" data-localize="Shared note">These settings apply to every session key. Slot order is set per key.</p>
@@ -139,6 +144,7 @@
       const u = Utils.getQueryParams('uuid') || '';
       if (u.endsWith('.usage')) return 'usage';
       if (u.endsWith('.more')) return 'more';
+      if (u.endsWith('.buddy')) return 'buddy';
       return 'slot';
     })();
     const ACTION_UUID = 'com.ulanzi.ulanzistudio.orcasessions.' + ACTION;

@@ -13,6 +13,10 @@
     {
       "Name": "Remaining limit",
       "Tooltip": "Remaining Claude or Codex 5-hour / weekly limit."
+    },
+    {
+      "Name": "Claude buddy",
+      "Tooltip": "Claude character that reacts to all sessions. Press to jump to the most urgent one."
     }
   ],
   "Localization": {
@@ -43,6 +47,7 @@
     "Claude 5-hour + weekly": "Claude 5-hour + weekly",
     "Codex 5-hour + weekly": "Codex 5-hour + weekly",
     "Quick replies": "Quick replies",
-    "Replies note": "Hold a session key to open its detail page. When the agent is idle, these appear as buttons (one per line, up to 4)."
+    "Replies note": "Hold a session key to open its detail page. When the agent is idle, these appear as buttons (one per line, up to 4).",
+    "Buddy note": "Reacts to all sessions: waves when someone needs you, types while agents work, celebrates when one finishes, dozes when all are idle, sweats when a limit is nearly used up. Press to jump to the most urgent session."
   }
 }

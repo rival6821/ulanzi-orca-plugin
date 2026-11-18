@@ -11,14 +11,16 @@ import { UsageStore, METRICS } from './usage.js';
 import {
   renderSession, renderEmpty, renderMore, renderError, renderMoreKey, renderNoSessions,
   renderUsageGauge, renderUsagePairGauge, sessionFrames, isAnimated, ORBIT_DELAY_MS,
-  renderButton, renderOption, renderReply,
+  renderButton, renderOption, renderReply, toDataUrl,
 } from './render.js';
 import { framesToGif } from './gif.js';
+import { buddyFrames, BUDDY_DELAY_MS, BUDDY_FRAMES, REACTIONS } from './buddy.js';
 
 const PLUGIN_UUID = 'com.ulanzi.ulanzistudio.orcasessions';
 const A_SLOT = `${PLUGIN_UUID}.slot`;
 const A_MORE = `${PLUGIN_UUID}.more`;
 const A_USAGE = `${PLUGIN_UUID}.usage`;
+const A_BUDDY = `${PLUGIN_UUID}.buddy`;
 
 // 남은 한도 키에 지표를 따로 정하지 않으면 키 위치 순서대로 이렇게 채운다.
 // D200H 아랫줄은 넓은 시계 위젯 때문에 3칸이라, AgentDeck처럼 Codex 5H+7D를 한 키에 묶는다.
@@ -248,6 +250,11 @@ function shortError(e) {
 }
 
 function renderSessions() {
+  renderSessionKeys();
+  renderBuddy();
+}
+
+function renderSessionKeys() {
   const ctxs = ordered(A_SLOT);
   const moreCtxs = ordered(A_MORE);
   const now = Date.now();
@@ -432,6 +439,64 @@ async function onDetailPress(ctx, a) {
   }
 }
 
+// ───────────────────────── 버디 (Claude 캐릭터) ─────────────────────────
+// 세션 하나가 아니라 전체 상황에 반응한다. 우선순위: Orca 꺼짐 > 사람이 필요함 > 방금 끝남 > 작업 중 > 쉬는 중.
+// 누르면 가장 급한 세션으로 전환한다. 급한 게 없으면(쉬는 중) 누를 때마다 다른 반응을 잠깐 보여 주고 다시 존다.
+
+const REACTION_MS = BUDDY_FRAMES * BUDDY_DELAY_MS * 2; // GIF 두 바퀴
+let reaction = null; // { kind, until }
+let reactionTimer = null;
+
+/** 가장 급한 세션 순서: 승인 대기 → 질문 대기 → 방금 끝남 → 작업 중 */
+function urgentSessions(now) {
+  const rank = (v) => (v.tone === 'awaiting' ? (v.ask ? 1 : 0) : v.fresh ? 2 : v.tone === 'working' ? 3 : 9);
+  return order.filter((h) => sessions.has(h))
+    .map((h) => ({ handle: h, v: viewFor(sessions.get(h), now) }))
+    .filter((x) => rank(x.v) < 9)
+    .sort((a, b) => rank(a.v) - rank(b.v));
+}
+
+function buddyState(now) {
+  // 한도가 하나라도 90% 이상 쓰였으면 땀
+  const sweat = ['claude', 'codex'].some((p) => Object.values(usage.get(p)?.data || {}).some((w) => w?.usedPercent >= 90));
+  if (lastError) return { mood: 'offline', label: 'OFFLINE' };
+  const list = urgentSessions(now);
+  const count = (f) => list.filter((x) => f(x.v)).length;
+  const needs = count((v) => v.tone === 'awaiting');
+  if (needs) return { mood: 'needs', label: needs > 1 ? `NEEDS YOU · ${needs}` : 'NEEDS YOU', sweat };
+  if (count((v) => v.fresh)) return { mood: 'done', label: 'DONE', sweat };
+  const working = count((v) => v.tone === 'working');
+  if (working) return { mood: 'working', label: `WORKING · ${working}`, sweat };
+  if (reaction && now < reaction.until) return { mood: 'react', kind: reaction.kind, label: REACTIONS[reaction.kind], sweat };
+  return { mood: 'idle', label: 'IDLE', sweat };
+}
+
+function renderBuddy() {
+  const ctxs = keysOf(A_BUDDY).map(([ctx]) => ctx);
+  if (!ctxs.length) return;
+  const st = buddyState(Date.now());
+  const frames = buddyFrames(st);
+  const still = toDataUrl(frames[0]);
+  for (const ctx of ctxs) send(ctx, still, () => framesToGif(frames, BUDDY_DELAY_MS));
+}
+
+function playReaction() {
+  const kinds = Object.keys(REACTIONS).filter((k) => k !== reaction?.kind); // 같은 반응 연속 안 나오게
+  reaction = { kind: kinds[Math.floor(Math.random() * kinds.length)], until: Date.now() + REACTION_MS };
+  renderBuddy();
+  clearTimeout(reactionTimer);
+  reactionTimer = setTimeout(renderBuddy, REACTION_MS + 50); // 끝나면 다시 졸기
+}
+
+async function onBuddyPress(ctx) {
+  if (lastError) return orca.activateApp(); // Orca가 꺼져 있으면 띄운다
+  const top = urgentSessions(Date.now())[0];
+  if (!top) return playReaction();
+  if (top.v.fresh) seenDone.add(top.v.doneId);
+  renderSessions();
+  await focusSession(ctx, top.handle);
+}
+
 // ───────────────────────── 남은 한도 ─────────────────────────
 
 function usageMetrics() {
@@ -486,14 +551,16 @@ function renderUsageKeys() {
       send(ctx, renderUsageGauge({ provider: m.brand, ...usageRow(st, m.window, m.label), showUsed }));
     }
   }
+  renderBuddy(); // 한도에 따라 땀
 }
 
 function ensureTimers() {
-  if (hasAny(A_SLOT) && !sessionTimer) {
+  const needSessions = hasAny(A_SLOT) || hasAny(A_BUDDY);
+  if (needSessions && !sessionTimer) {
     restartSessionTimer();
     pollSessions();
   }
-  if (!hasAny(A_SLOT) && sessionTimer) {
+  if (!needSessions && sessionTimer) {
     clearInterval(sessionTimer);
     sessionTimer = null;
   }
@@ -676,6 +743,8 @@ async function onPress(ctx) {
     renderSessions();
     return;
   }
+
+  if (action === A_BUDDY) return onBuddyPress(ctx);
 
   if (action === A_USAGE) {
     // 조회 오류가 있는 키는 누르면 다시 조회(토큰 갱신 후 등), 아니면 남은 % ↔ 사용한 % 전환

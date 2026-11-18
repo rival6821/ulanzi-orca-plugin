@@ -67,6 +67,25 @@
       ],
       "Devices": [],
       "SupportedInMultiActions": false
+    },
+    {
+      "Name": "Claude buddy",
+      "Icon": "resources/buddy-icon.svg",
+      "Tooltip": "Claude character that reacts to all sessions. Press to jump to the most urgent one.",
+      "UUID": "com.ulanzi.ulanzistudio.orcasessions.buddy",
+      "PropertyInspectorPath": "property-inspector/inspector.html",
+      "state": 0,
+      "States": [
+        {
+          "Name": "Default",
+          "Image": "resources/buddy-icon.svg"
+        }
+      ],
+      "Controllers": [
+        "Keypad"
+      ],
+      "Devices": [],
+      "SupportedInMultiActions": false
     }
   ],
   "OS": [

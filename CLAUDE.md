@@ -15,8 +15,8 @@ Ulanzi D200H용 Ulanzi Studio 플러그인. Orca(Stably AI의 에이전트 개�
 
 - 플러그인 폴더 `com.ulanzi.orcasessions.ulanziPlugin/`가 그대로 설치 단위다. 빌드 단계 없음, ES 모듈(`"type": "module"`), Ulanzi Studio 내장 Node 20에서 `plugin/app.js`를 직접 실행한다.
 - `plugin/ulanzi/`(common-node)와 `libs/`(common-html)는 울란지 공식 SDK 사본. 수정하지 않는다. 출처: https://github.com/UlanziTechnology/UlanziDeckPlugin-SDK
-- 액션 3개, UUID는 `com.ulanzi.ulanzistudio.orcasessions.{slot,more,usage}`. 메인 서비스 UUID는 반드시 4구간, 액션은 5구간 이상 — SDK가 구간 수로 메인/설정 화면을 구분한다.
-- 설정 화면 하나(`property-inspector/inspector.html`)를 세 액션이 같이 쓰고, 쿼리의 `uuid`로 어느 액션인지 판단해 해당 `fieldset`만 켠다. 꺼진 fieldset의 입력은 저장 대상에서 빠진다.
+- 액션 4개, UUID는 `com.ulanzi.ulanzistudio.orcasessions.{slot,more,usage,buddy}`. 메인 서비스 UUID는 반드시 4구간, 액션은 5구간 이상 — SDK가 구간 수로 메인/설정 화면을 구분한다.
+- 설정 화면 하나(`property-inspector/inspector.html`)를 네 액션이 같이 쓰고, 쿼리의 `uuid`로 어느 액션인지 판단해 해당 `fieldset`만 켠다. 꺼진 fieldset의 입력은 저장 대상에서 빠진다.
 
 ## 데이터 출처
 
@@ -54,11 +54,12 @@ Ulanzi D200H용 Ulanzi Studio 플러그인. Orca(Stably AI의 에이전트 개�
 
 - 렌더러는 AgentDeck `shared/src/svg-renderers/session-slot-renderer.ts`와 `shared/src/d200h-layout.ts`, 토큰은 `design/tokens.css`에서 옮겨 왔다 (MIT, THIRD-PARTY-NOTICES.md). 새 키 모양을 만들 때도 그쪽 구성과 토큰을 먼저 본다: https://github.com/puritysb/AgentDeck
 - 색은 의미가 하나씩: 청록 #2DD4BF = 작업 중, 주황 #FFA93D = 사람이 필요함(PERMIT?·CHOOSE?, 유일하게 강조되는 색), 초록 #52D988 = 세션 키에선 방금 끝남(DONE), 초록/주황/빨강 = 한도 심각도(사용 70%/90% 기준), 회색 = 정보 없음.
-- 에이전트·회사 로고는 넣지 않는다. 이름 + AgentDeck의 브랜드 강조색만 쓴다.
+- 에이전트·회사 로고는 넣지 않는다. 이름 + AgentDeck의 브랜드 강조색만 쓴다. 단, Claude 캐릭터(Clawd, Claude Code 시작 화면의 주황 픽셀 캐릭터)는 넣어도 된다 — 버디 키(`buddy.js`)에 쓴다.
 - 키 위 문구는 AgentDeck처럼 짧은 영어 대문자(RUNNING, IDLE, PERMIT?, CHOOSE?, DONE, MORE, 5H, 7D, USED, LEFT). 설정 화면과 문서는 한국어.
 - 키 캔버스는 144×144 SVG, `setBaseDataIcon`에 `data:image/svg+xml;base64,…`로 보낸다(울란지 공식 데모와 같은 방식). 같은 그림이면 다시 보내지 않도록 마지막 data URL을 캐시한다 — SVG 안에 무작위 id를 넣지 말 것.
 - 움직이는 키는 GIF다: RUNNING = 테두리 회전, PERMIT?·CHOOSE? = 주황 깜빡임(빠르게), DONE = 초록 깜빡임(천천히). DONE은 `worktree ps`의 `stateStartedAt`이 5분 이내인 done이고, 그 키를 누르면(`paneKey@stateStartedAt` 기억) IDLE로 돌아간다. 만드는 법(`gif.js`, AgentDeck과 같은 resvg wasm → gifenc). 정적 SVG를 먼저 보내고, GIF가 준비됐을 때 그 키 그림이 그대로면 `setGifDataIcon`으로 바꿔 끼운다. GIF는 정적 data URL을 키로 캐시. 폰트는 시스템 `AppleSDGothicNeo.ttc`를 읽는다. GIF를 못 만들면 정적 SVG가 그대로 남는다.
 - 세션 키 제목은 22→14px 중 잘리지 않고 들어가는 가장 큰 크기(`NAME_SIZES`). 브랜치·도구 줄과 에이전트 색 점은 없다(작아서 안 읽히고, Claude 점이 PERMIT? 주황과 헷갈림). 에이전트 색은 IDLE 글자에만.
+- 버디 키(`buddy.js`): Clawd를 Claude Code 시작 화면 블록 문자에서 옮긴 18×10 픽셀로 그리고, 전체 상황(Orca 꺼짐 > 승인·질문 대기 > 방금 끝남 > 작업 중 > 쉬는 중, 한도 90%↑면 땀)에 따라 8프레임 GIF. 항상 GIF라 배경은 단색(그라데이션은 GIF에서 띠가 생김). 누르면 가장 급한 세션으로 전환, 급한 게 없으면 `REACTIONS` 중 하나(직전과 다른 것)를 GIF 두 바퀴 동안 보여 주고 IDLE로, Orca 꺼짐이면 `open -a Orca`. 글꼴에 없는 기호(예: ♫)는 GIF에서 네모로 나오니 쓰지 말 것.
 - 글자 폭은 `render.js`의 `charEm` 추정치로 줄바꿈한다. 한글은 1em. 넘치면 추정치를 고친다.
 
 ## 주의할 점

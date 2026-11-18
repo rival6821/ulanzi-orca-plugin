@@ -44,3 +44,7 @@ node_modules/@resvg/resvg-wasm 은 Mozilla Public License 2.0 (https://github.co
 ## gifenc
 
 node_modules/gifenc 는 MIT License (node_modules/gifenc/LICENSE.md). GIF 인코딩 방식(델타 프레임)은 AgentDeck src/gif.ts를 따랐습니다.
+
+## Claude 캐릭터 (Clawd)
+
+버디 키의 캐릭터는 Anthropic의 Claude Code에 나오는 Clawd를 픽셀로 옮긴 것입니다. 캐릭터와 이름은 Anthropic의 것입니다.

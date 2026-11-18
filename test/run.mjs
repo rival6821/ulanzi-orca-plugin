@@ -41,6 +41,7 @@ const setState = (s) => fs.writeFileSync(STATE, JSON.stringify(s));
 const LAYOUT = [];
 for (let r = 0; r < 2; r++) for (let c = 0; c < 5; c++) LAYOUT.push({ key: `${c}_${r}`, action: r === 1 && c === 4 ? 'more' : 'slot' });
 for (let c = 0; c < 3; c++) LAYOUT.push({ key: `${c}_2`, action: 'usage' });
+LAYOUT.push({ key: '3_2', action: 'buddy' }); // 테스트용 자리 (실기기 D200H에선 시계 칸)
 
 const icons = {};
 const gifs = {};
@@ -127,6 +128,10 @@ try {
   send({ cmd: 'run', uuid: `${P}.slot`, key: '4_0', actionid: 'a4_0' });
   await sleep(400);
   check('DONE 키를 누르면 깜빡임이 멈추고 IDLE', svgOf('4_0').includes('>IDLE<') && !gifs['4_0']);
+  check('버디: 승인·질문 대기가 있으면 NEEDS YOU (3개) + GIF', svgOf('3_2').includes('NEEDS YOU · 3') && isGif('3_2'));
+  send({ cmd: 'run', uuid: `${P}.buddy`, key: '3_2', actionid: 'a3_2' });
+  await sleep(500);
+  check('버디를 누르면 가장 급한 세션(첫 승인 대기)으로 전환', calls().includes('terminal switch --terminal h1'));
   check('셸 터미널은 숨김', !Object.keys(icons).some((k) => svgOf(k).includes('>zsh<')));
   check('더보기 키에 +2 · 1/2', svgOf('4_1').includes('+2 · 1/2'));
   check('한도 0_2 = Claude 5H 27% 사용 (기본 USED)', svgOf('0_2').includes('>5H<') && svgOf('0_2').includes('>27%<') && svgOf('0_2').includes('>USED<'));
@@ -143,13 +148,14 @@ try {
   check('한 번 더 누르면 사용한 %로 돌아옴', svgOf('0_2').includes('>27%<') && svgOf('0_2').includes('>USED<') && svgOf('2_2').includes('>88<'));
 
   // ── 상세 화면 ──
+  const beforeLong = calls().length;
   await press('1_0', 700);
   snap('PERMIT? 세션(Codex)을 길게 누른 상세 화면');
   check('길게 누르면 상세 화면: BACK · 세션 · OPEN · (Codex는 MODE 없음) · NEW', svgOf('0_0').includes('>BACK<') && svgOf('1_0').includes('PERMIT?') &&
     svgOf('2_0').includes('>OPEN<') && !svgOf('3_0').includes('<text') && svgOf('4_0').includes('NEW CODEX'));
   check('화면에서 읽은 승인 선택지 + ESC가 아랫줄에', svgOf('0_1').includes('>1<') && svgOf('0_1').includes('>proceed<') &&
     svgOf('2_1').includes('>3<') && !svgOf('2_1').includes('(esc)') && svgOf('3_1').includes('>ESC<'));
-  check('길게 누르면 Orca 전환은 하지 않음', !calls().includes('terminal switch --terminal h1'));
+  check('길게 누르면 Orca 전환은 하지 않음', !calls().slice(beforeLong).includes('terminal switch'));
   check('상세 화면에서도 한도 키는 그대로', svgOf('0_2').includes('>27%<'));
   await press('0_1');
   check('선택지를 누르면 그 번호를 보냄', calls().includes('terminal send --terminal h1 --text 1'));
@@ -205,11 +211,19 @@ try {
   await sleep(2600);
   snap('세션 없음');
   check('세션이 없으면 첫 칸에 NO SESSIONS', svgOf('0_0').includes('NO SESSIONS'));
+  check('세션이 없으면 버디는 IDLE', svgOf('3_2').includes('>IDLE<'));
+  send({ cmd: 'run', uuid: `${P}.buddy`, key: '3_2', actionid: 'a3_2' });
+  await sleep(300);
+  const REACT = ['HI!', 'LOVE', 'DANCE', 'BOING', 'YAWN', 'WINK', '?!'];
+  check('쉬는 중에 버디를 누르면 반응 (+ GIF)', REACT.some((l) => svgOf('3_2').includes(`>${l}<`)) && isGif('3_2'));
+  await sleep(3200);
+  check('반응이 끝나면 다시 IDLE', svgOf('3_2').includes('>IDLE<'));
 
   setState({ fail: true });
   await sleep(2600);
   snap('Orca 꺼짐');
   check('Orca가 꺼지면 첫 칸에 OFFLINE', svgOf('0_0').includes('OFFLINE'));
+  check('Orca가 꺼지면 버디도 OFFLINE', svgOf('3_2').includes('>OFFLINE<'));
   check('한도 키는 Orca와 무관하게 유지', svgOf('0_2').includes('>27%<'));
 
   check('플러그인 stderr에 예외 없음', !/TypeError|ReferenceError|uncaught/i.test(stderr));
