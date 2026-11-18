@@ -58,7 +58,7 @@ Ulanzi D200H용 Ulanzi Studio 플러그인. Orca(Stably AI의 에이전트 개�
 - 키 위 문구는 AgentDeck처럼 짧은 영어 대문자(RUNNING, IDLE, PERMIT?, CHOOSE?, DONE, MORE, 5H, 7D, USED, LEFT). 설정 화면과 문서는 한국어.
 - 키 캔버스는 144×144 SVG, `setBaseDataIcon`에 `data:image/svg+xml;base64,…`로 보낸다(울란지 공식 데모와 같은 방식). 같은 그림이면 다시 보내지 않도록 마지막 data URL을 캐시한다 — SVG 안에 무작위 id를 넣지 말 것.
 - 움직이는 키는 GIF다: RUNNING = 테두리 회전, PERMIT?·CHOOSE? = 주황 깜빡임(빠르게), DONE = 초록 깜빡임(천천히). DONE은 `worktree ps`의 `stateStartedAt`이 5분 이내인 done이고, 그 키를 누르면(`paneKey@stateStartedAt` 기억) IDLE로 돌아간다. 만드는 법(`gif.js`, AgentDeck과 같은 resvg wasm → gifenc). 정적 SVG를 먼저 보내고, GIF가 준비됐을 때 그 키 그림이 그대로면 `setGifDataIcon`으로 바꿔 끼운다. GIF는 정적 data URL을 키로 캐시. 폰트는 시스템 `AppleSDGothicNeo.ttc`를 읽는다. GIF를 못 만들면 정적 SVG가 그대로 남는다.
-- 세션 키 제목은 22→14px 중 잘리지 않고 들어가는 가장 큰 크기(`NAME_SIZES`). 브랜치·도구 줄과 에이전트 색 점은 없다(작아서 안 읽히고, Claude 점이 PERMIT? 주황과 헷갈림). 에이전트 색은 IDLE 글자에만.
+- 세션 키 제목·선택지 문구는 22→16px 중 잘리지 않고 들어가는 가장 큰 크기, 최대 4줄(`fitBlock`). 5줄·14px은 실기기에서 안 읽힌다. 브랜치·도구 줄과 에이전트 색 점은 없다(작아서 안 읽히고, Claude 점이 PERMIT? 주황과 헷갈림). 에이전트 색은 IDLE 글자에만.
 - 버디 키(`buddy.js`): Clawd를 Claude Code 시작 화면 블록 문자에서 옮긴 18×10 픽셀로 그리고, 전체 상황(Orca 꺼짐 > 승인·질문 대기 > 방금 끝남 > 작업 중 > 쉬는 중, 한도 90%↑면 땀)에 따라 8프레임 GIF. 항상 GIF라 배경은 단색(그라데이션은 GIF에서 띠가 생김). 누르면 가장 급한 세션으로 전환, 급한 게 없으면 `REACTIONS` 중 하나(직전과 다른 것)를 GIF 두 바퀴 동안 보여 주고 IDLE로, Orca 꺼짐이면 `open -a Orca`. 글꼴에 없는 기호(예: ♫)는 GIF에서 네모로 나오니 쓰지 말 것.
 - 글자 폭은 `render.js`의 `charEm` 추정치로 줄바꿈한다. 한글은 1em. 넘치면 추정치를 고친다.
 

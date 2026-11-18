@@ -163,12 +163,13 @@ function orbitBorder(frame) {
 /**
  * 위의 작은 라벨(y 32) 아래 상자(top..bottom)에, 잘리지 않고 들어가는 가장 큰 크기로 여러 줄 글을 놓는다.
  * 다 안 들어가면 가장 작은 크기에서 마지막 줄을 …로 자른다. 세로는 상자 가운데.
+ * 실기기에서 5줄(14px)은 안 읽혀서 최대 4줄, 가장 작은 글자 16px.
  */
-function fitBlock(text, { x = 20, w = 100, top = 40, bottom = 122, sizes = [22, 20, 18, 16, 14], weight = 600, fill = UI.hudText } = {}) {
+function fitBlock(text, { x = 20, w = 100, top = 40, bottom = 122, sizes = [22, 20, 18, 16], maxLines: cap = 4, weight = 600, fill = UI.hudText } = {}) {
   let size, lh, lines;
   for (size of sizes) {
     lh = Math.round(size * 1.15);
-    const maxLines = Math.floor((bottom - top - size) / lh) + 1;
+    const maxLines = Math.min(cap, Math.floor((bottom - top - size) / lh) + 1);
     lines = wrapByWidth(text, w, size, 99);
     if (lines.length <= maxLines) break;
     lines = wrapByWidth(text, w, size, maxLines);
