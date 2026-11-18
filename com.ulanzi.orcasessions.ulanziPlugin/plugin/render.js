@@ -365,17 +365,18 @@ export function renderUsagePairGauge(provider, rows, showUsed = false) {
     const text = stale ? UI.ttyDim : TIDE_50;
     const reset = stale ? agoShort(now - r.updatedAt) : formatResetCountdown(r.window.resetsAt, now);
     const barW = Math.round((120 * shown) / 100);
-    const numRight = 118;
-    return `<text x="12" y="${y + 29}" font-family="${esc(FONT_MONO)}" font-size="18" font-weight="bold" fill="${text}">${esc(r.label)}</text>` +
-      `<text x="${numRight}" y="${y + 29}" text-anchor="end" font-family="${esc(FONT_PLEX)}" font-size="20" font-weight="bold" fill="${text}">${shown}</text>` +
-      `<text x="${numRight + 2}" y="${y + 29}" font-family="${esc(FONT_PLEX)}" font-size="12" font-weight="bold" fill="${text}">%</text>` +
-      (reset ? `<text x="12" y="${y + 51}" font-family="${esc(FONT_MONO)}" font-size="11" font-weight="bold" fill="${text}">${esc(reset)}</text>` : '') +
-      `<rect x="12" y="${y + 62}" width="120" height="3" rx="1.5" fill="${UI.ttyFaint}"/>` +
-      (barW > 0 ? `<rect x="12" y="${y + 62}" width="${barW}" height="3" rx="1.5" fill="${color}" opacity="${stale ? 0.55 : 1}"/>` : '');
+    // 숫자를 크게, 심각도 색으로 (작은 키에서 한눈에 보이게)
+    const num = stale ? UI.ttyDim : color;
+    return `<text x="12" y="${y + 32}" font-family="${esc(FONT_MONO)}" font-size="20" font-weight="bold" fill="${text}">${esc(r.label)}</text>` +
+      `<text x="114" y="${y + 36}" text-anchor="end" font-family="${esc(FONT_PLEX)}" font-size="34" font-weight="bold" fill="${num}">${shown}</text>` +
+      `<text x="116" y="${y + 36}" font-family="${esc(FONT_PLEX)}" font-size="15" font-weight="bold" fill="${num}">%</text>` +
+      (reset ? `<text x="12" y="${y + 55}" font-family="${esc(FONT_MONO)}" font-size="15" font-weight="bold" fill="${text}">${esc(reset)}</text>` : '') +
+      `<rect x="12" y="${y + 60}" width="120" height="6" rx="3" fill="${UI.ttyFaint}"/>` +
+      (barW > 0 ? `<rect x="12" y="${y + 60}" width="${barW}" height="6" rx="3" fill="${color}" opacity="${stale ? 0.55 : 1}"/>` : '');
   }).join('');
   // 브랜드 이름은 위 칸, LEFT/USED는 아래 칸 초기화 시간 줄의 오른쪽 끝에
-  const mode = `<text x="132" y="${H / 2 + 51}" text-anchor="end" font-family="${esc(FONT_MONO)}" font-size="11" font-weight="bold" fill="${UI.hudSubtext}">${showUsed ? 'USED' : 'LEFT'}</text>`;
-  return toDataUrl(svgOpen + bg + divider + body + brandTag(provider, 132, 51, 11, false) + mode + `</svg>`);
+  const mode = `<text x="132" y="${H / 2 + 55}" text-anchor="end" font-family="${esc(FONT_MONO)}" font-size="13" font-weight="bold" fill="${UI.hudSubtext}">${showUsed ? 'USED' : 'LEFT'}</text>`;
+  return toDataUrl(svgOpen + bg + divider + body + brandTag(provider, 132, 55, 13, false) + mode + `</svg>`);
 }
 
 // ── 세션 상세 화면 (세션 키를 길게 누르면) ──
