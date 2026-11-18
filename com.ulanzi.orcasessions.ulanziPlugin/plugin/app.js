@@ -196,10 +196,10 @@ function viewFor(t, now) {
   }
   // Orca가 알려주는 상태가 있으면 그대로 쓴다
   if (row?.state) {
+    // blocked = 도구 승인 대기(PERMIT?), waiting = AI가 낸 질문·선택지에 답 대기(CHOOSE?). Orca도 둘 다 "입력 필요"로 본다.
     if (row.state === 'blocked') return { tone: 'awaiting', agent, name };
-    if (row.state === 'working' || row.state === 'waiting') {
-      return { tone: 'working', agent, name };
-    }
+    if (row.state === 'waiting') return { tone: 'awaiting', ask: true, agent, name };
+    if (row.state === 'working') return { tone: 'working', agent, name };
     const doneId = `${row.paneKey}@${row.stateStartedAt}`;
     const fresh = row.state === 'done' && now - Number(row.stateStartedAt) < DONE_BLINK_MS && !seenDone.has(doneId);
     return { tone: 'idle', agent, name, fresh, doneId };
@@ -306,7 +306,7 @@ function renderSessions() {
 // 세션 키를 길게 누르면 세션 슬롯·더보기 키들이 그 세션의 상세 화면이 된다(한도 키는 그대로).
 // 키가 작아 글자 정보는 넣지 않고, 누르면 실제로 무언가 하는 버튼만 둔다.
 //   윗줄: BACK · 세션 · OPEN · MODE(Claude만) · NEW
-//   아랫줄: 승인 대기 = 화면의 선택지 + ESC / 작업 중 = STOP / 쉬는 중 = 빠른 답장
+//   아랫줄: 승인·질문 대기 = 화면의 선택지 + ESC / 작업 중 = STOP / 쉬는 중 = 빠른 답장
 
 const LONG_PRESS_MS = 500;
 const DETAIL_IDLE_MS = 60 * 1000; // 아무것도 안 누르면 목록으로 돌아간다
@@ -364,7 +364,10 @@ function renderDetail(now) {
   ];
   if (v.tone === 'awaiting' && row) {
     const guard = { paneKey: row.paneKey, request: requestKey(row) };
-    for (const o of detail.options) cells.push({ type: 'keys', text: String(o.n), guard, icon: renderOption(o.n, o.label) });
+    // "Type something." · "Chat about this"는 고르면 키보드 입력이 필요해서 키에는 두지 않는다
+    for (const o of detail.options.filter((o) => !/^(type something|chat about this)/i.test(o.label))) {
+      cells.push({ type: 'keys', text: String(o.n), guard, icon: renderOption(o.n, o.label) });
+    }
     cells.push({ type: 'keys', text: ESC, guard, icon: renderButton({ big: 'ESC', label: 'CANCEL', tone: 'danger' }) });
   } else if (v.tone === 'working') {
     cells.push({ type: 'keys', text: ESC, icon: renderButton({ big: '■', label: 'STOP', tone: 'danger' }) });
@@ -412,7 +415,7 @@ async function onDetailPress(ctx, a) {
     // 보내기 직전에 Orca에 다시 물어서, 화면에 띄운 그 승인 요청이 아직 그대로일 때만 보낸다.
     if (a.guard) {
       const row = (await orca.listAgents()).get(a.guard.paneKey);
-      if (!row || row.state !== 'blocked' || requestKey(row) !== a.guard.request) {
+      if (!row || !['blocked', 'waiting'].includes(row.state) || requestKey(row) !== a.guard.request) {
         $UD.toast('승인 요청이 바뀌었습니다. 화면을 다시 확인하세요.');
         pollSessions();
         return;

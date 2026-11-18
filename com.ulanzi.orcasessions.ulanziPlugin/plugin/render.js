@@ -159,9 +159,24 @@ function orbitBorder(frame) {
 }
 
 // ── 세션 키 (AgentDeck renderSessionSlot) ──
-// 제목 상자: 상태 글자(y 32) 아래부터 키 안쪽 아래 여백까지. 폭은 x 20부터 100px.
-const NAME_TOP = 40, NAME_BOTTOM = 122, NAME_W = 100;
-const NAME_SIZES = [22, 20, 18, 16, 14];
+
+/**
+ * 위의 작은 라벨(y 32) 아래 상자(top..bottom)에, 잘리지 않고 들어가는 가장 큰 크기로 여러 줄 글을 놓는다.
+ * 다 안 들어가면 가장 작은 크기에서 마지막 줄을 …로 자른다. 세로는 상자 가운데.
+ */
+function fitBlock(text, { x = 20, w = 100, top = 40, bottom = 122, sizes = [22, 20, 18, 16, 14], weight = 600, fill = UI.hudText } = {}) {
+  let size, lh, lines;
+  for (size of sizes) {
+    lh = Math.round(size * 1.15);
+    const maxLines = Math.floor((bottom - top - size) / lh) + 1;
+    lines = wrapByWidth(text, w, size, 99);
+    if (lines.length <= maxLines) break;
+    lines = wrapByWidth(text, w, size, maxLines);
+  }
+  const firstY = top + (bottom - top - ((lines.length - 1) * lh + size)) / 2 + size * 0.82; // 0.82 ≈ 글자 윗부분(ascent)
+  return lines.map((l, i) =>
+    `<text x="${x}" y="${(firstY + i * lh).toFixed(1)}" font-size="${size}" font-weight="${weight}" fill="${fill}" font-family="${esc(FONT_UI)}">${esc(l)}</text>`).join('');
+}
 /**
  * @param {object} v
  * @param {'working'|'awaiting'|'idle'|'ended'} v.tone
@@ -184,24 +199,10 @@ function sessionSvg(v, frame = null) {
   const accent = agentAccent(v.agent);
   const fam = esc(FONT_UI);
 
-  const stateLbl = isAsking ? 'PERMIT?' : isWorking ? 'RUNNING' : isEnded ? 'ENDED' : isDone ? 'DONE' : 'IDLE';
+  const stateLbl = isAsking ? (v.ask ? 'CHOOSE?' : 'PERMIT?') : isWorking ? 'RUNNING' : isEnded ? 'ENDED' : isDone ? 'DONE' : 'IDLE';
   const colorText = isWorking ? '#CCFBF1' : isAsking ? '#FCD34D' : isDone ? '#BBF7D0' : isEnded ? UI.idleDark : accent;
 
-  // 이름: 상태 글자 아래 상자(NAME_TOP..NAME_BOTTOM)에, 잘리지 않고 들어가는 가장 큰 크기로.
-  // 다 안 들어가면 가장 작은 크기에서 마지막 줄을 …로 자른다.
-  const name = v.name || '(untitled)';
-  let size, lh, lines;
-  for (size of NAME_SIZES) {
-    lh = Math.round(size * 1.15);
-    const maxLines = Math.floor((NAME_BOTTOM - NAME_TOP - size) / lh) + 1;
-    lines = wrapByWidth(name, NAME_W, size, 99);
-    if (lines.length <= maxLines) break;
-    lines = wrapByWidth(name, NAME_W, size, maxLines);
-  }
-  const blockH = (lines.length - 1) * lh + size;
-  const firstY = NAME_TOP + (NAME_BOTTOM - NAME_TOP - blockH) / 2 + size * 0.82; // 0.82 ≈ 글자 윗부분(ascent)
-  const nameText = lines.map((l, i) =>
-    `<text x="20" y="${(firstY + i * lh).toFixed(1)}" font-size="${size}" font-weight="600" fill="${isEnded ? '#71717A' : UI.hudText}" font-family="${fam}">${esc(l)}</text>`).join('');
+  const nameText = fitBlock(v.name || '(untitled)', { fill: isEnded ? '#71717A' : UI.hudText });
 
   const blur = `<filter id="pg" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur in="SourceGraphic" stdDeviation="2.4"/></filter>`;
   let defs = `<linearGradient id="sd-bg" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#1C1C1E"/><stop offset="100%" stop-color="#0C0C0E"/></linearGradient>`;
@@ -218,7 +219,7 @@ function sessionSvg(v, frame = null) {
     defs += blur;
     border = `<rect x="8" y="8" width="128" height="128" rx="12" fill="none" stroke="${UI.attn}" stroke-width="7" opacity="${(0.6 * b).toFixed(2)}" filter="url(#pg)"/>` +
       `<rect x="8" y="8" width="128" height="128" rx="12" fill="none" stroke="${UI.attn}" stroke-width="3" opacity="${(0.3 + 0.67 * b).toFixed(2)}"/>`;
-    pill = `<rect x="94" y="14" width="38" height="17" rx="8.5" fill="${UI.attn}"/><text x="113" y="26.5" font-size="10" font-weight="800" text-anchor="middle" fill="#221500" font-family="${fam}">PERM</text>`;
+    if (!v.ask) pill = `<rect x="94" y="14" width="38" height="17" rx="8.5" fill="${UI.attn}"/><text x="113" y="26.5" font-size="10" font-weight="800" text-anchor="middle" fill="#221500" font-family="${fam}">PERM</text>`;
   } else if (isDone) {
     // 한 바퀴에 한 번, 천천히
     const b = frame != null ? Math.abs(Math.cos((Math.PI * frame) / ORBIT_FRAMES)) : 1;
@@ -234,7 +235,7 @@ function sessionSvg(v, frame = null) {
     `<rect x="8" y="8" width="128" height="128" rx="12" fill="#2C2C2E" opacity="0.8"/>` +
     border + pill +
     // PERM 알약과 겹치지 않도록 승인 대기일 때만 글자를 조금 줄인다
-    `<text x="20" y="32" font-size="${isAsking ? 14 : 17}" font-weight="800" fill="${colorText}" font-family="${fam}">${stateLbl}</text>` +
+    `<text x="20" y="32" font-size="${pill ? 14 : 17}" font-weight="800" fill="${colorText}" font-family="${fam}">${stateLbl}</text>` +
     nameText + `</svg>`);
 }
 
@@ -394,13 +395,12 @@ export function renderButton({ big, label, tone = 'muted' }) {
     `<text x="72" y="116" text-anchor="middle" font-family="${esc(FONT_UI)}" font-size="14" font-weight="800" fill="${c.sub}">${esc(fit(label, 116, 14))}</text>`));
 }
 
-/** 승인 선택지: 왼쪽 위 큰 번호 + 선택지 문구 */
+/** 승인·질문 선택지: 왼쪽 위 작은 번호 + 선택지 문구(들어가는 가장 큰 크기) */
 export function renderOption(n, label) {
-  const lines = wrapByWidth(label, 108, 13, 4);
   return toDataUrl(svgFrame('#1a1206',
     `<rect x="8" y="8" width="128" height="128" rx="12" fill="none" stroke="${UI.attn}" stroke-width="2" opacity="0.7"/>` +
-    `<text x="20" y="48" font-family="${esc(FONT_UI)}" font-size="34" font-weight="800" fill="${UI.attn}">${esc(n)}</text>` +
-    lines.map((l, i) => `<text x="20" y="${74 + i * 16}" font-family="${esc(FONT_UI)}" font-size="13" font-weight="600" fill="${UI.hudText}">${esc(l)}</text>`).join('')));
+    `<text x="20" y="32" font-family="${esc(FONT_UI)}" font-size="17" font-weight="800" fill="${UI.attn}">${esc(n)}</text>` +
+    fitBlock(label, { w: 104 })));
 }
 
 /** 빠른 답장: 위에 작은 REPLY, 아래 보낼 문구 */

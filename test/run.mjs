@@ -67,6 +67,7 @@ const press = async (key, ms = 50, action = 'slot') => {
   await sleep(400);
 };
 const calls = () => fs.readFileSync(LOG, 'utf8');
+const isGif = (k) => Buffer.from(gifs[k] || '', 'base64').subarray(0, 6).toString() === 'GIF89a';
 const svgOf = (key) => (icons[key] ? Buffer.from(icons[key].split(',')[1], 'base64').toString('utf8') : '');
 
 // ── 시나리오 데이터 ──
@@ -92,7 +93,9 @@ const gifUrls = () => Object.fromEntries(Object.entries(gifs).map(([k, g]) => [k
 const snap = (title) => snapshots.push({ title, icons: { ...icons, ...gifUrls() } });
 
 // 1번(blocked, Codex) 터미널에 보이는 승인 화면
-const screens = { h0: ['> 작업 중…', '', '  ⏸ plan mode on (shift+tab to cycle)'], h1: ['Allow command?', '  npm test', '› 1. Yes, proceed (y)', "  2. Yes, and don't ask again for this command (a)", '  3. No, and tell Codex what to do differently (esc)'] };
+const screens = {
+  h5: ['어떤 방식으로 할까요?', '', '❯ 1. 캐시 키를 브랜치별로', '  2. 매번 새로 받기', '  3. Type something.'],
+  h0: ['> 작업 중…', '', '  ⏸ plan mode on (shift+tab to cycle)'], h1: ['Allow command?', '  npm test', '› 1. Yes, proceed (y)', "  2. Yes, and don't ask again for this command (a)", '  3. No, and tell Codex what to do differently (esc)'] };
 setState({ terminals, agents, screens });
 const child = spawn(process.execPath, ['--import', path.join(ROOT, 'test/fixtures/mock-fetch.mjs'), path.join(PLUGIN, 'plugin/app.js'), '127.0.0.1', String(PORT), 'ko_KR'], {
   env: {
@@ -115,9 +118,8 @@ try {
   check('0_0 작업 중 세션은 RUNNING', svgOf('0_0').includes('RUNNING'));
   check('1_0 blocked 세션은 PERMIT? + PERM', svgOf('1_0').includes('PERMIT?') && svgOf('1_0').includes('>PERM<'));
   check('2_0 done 세션은 IDLE', svgOf('2_0').includes('>IDLE<'));
-  check('waiting 상태도 RUNNING으로 표시 (0_1)', svgOf('0_1').includes('RUNNING'));
-  check('RUNNING 키는 움직이는 GIF로 바뀜', Buffer.from(gifs['0_0'] || '', 'base64').subarray(0, 6).toString() === 'GIF89a');
-  const isGif = (k) => Buffer.from(gifs[k] || '', 'base64').subarray(0, 6).toString() === 'GIF89a';
+  check('waiting(AI 질문 대기)은 CHOOSE?, PERM 없음 (0_1)', svgOf('0_1').includes('CHOOSE?') && !svgOf('0_1').includes('>PERM<') && isGif('0_1'));
+  check('RUNNING 키는 움직이는 GIF로 바뀜', isGif('0_0'));
   check('PERMIT? 키도 깜빡이는 GIF', isGif('1_0'));
   check('방금 끝난 세션은 DONE + GIF (4_0)', svgOf('4_0').includes('>DONE<') && isGif('4_0'));
   check('오래전에 끝난 세션은 IDLE, GIF 없음 (2_0)', !gifs['2_0']);
@@ -145,7 +147,7 @@ try {
   snap('PERMIT? 세션(Codex)을 길게 누른 상세 화면');
   check('길게 누르면 상세 화면: BACK · 세션 · OPEN · (Codex는 MODE 없음) · NEW', svgOf('0_0').includes('>BACK<') && svgOf('1_0').includes('PERMIT?') &&
     svgOf('2_0').includes('>OPEN<') && !svgOf('3_0').includes('<text') && svgOf('4_0').includes('NEW CODEX'));
-  check('화면에서 읽은 승인 선택지 + ESC가 아랫줄에', svgOf('0_1').includes('>1<') && svgOf('0_1').includes('Yes, proceed') &&
+  check('화면에서 읽은 승인 선택지 + ESC가 아랫줄에', svgOf('0_1').includes('>1<') && svgOf('0_1').includes('>proceed<') &&
     svgOf('2_1').includes('>3<') && !svgOf('2_1').includes('(esc)') && svgOf('3_1').includes('>ESC<'));
   check('길게 누르면 Orca 전환은 하지 않음', !calls().includes('terminal switch --terminal h1'));
   check('상세 화면에서도 한도 키는 그대로', svgOf('0_2').includes('>27%<'));
@@ -168,6 +170,12 @@ try {
   check('STOP은 Esc를 보냄', calls().includes('terminal send --terminal h0 --text \x1b --json'));
   await press('0_0');
   check('BACK을 누르면 목록으로', svgOf('0_0').includes('RUNNING') && svgOf('4_1').includes('MORE'));
+
+  await press('0_1', 700);
+  check('CHOOSE? 세션 상세에는 AI가 준 선택지 (Type something. 은 뺌)', svgOf('0_1').includes('캐시 키를') && svgOf('1_1').includes('>2<') && svgOf('2_1').includes('>ESC<'));
+  await press('1_1');
+  check('CHOOSE? 선택지를 누르면 그 번호를 보냄', calls().includes('terminal send --terminal h5 --text 2'));
+  await press('0_0');
 
   await press('2_0', 700);
   snap('쉬는 세션 상세 화면 (빠른 답장)');

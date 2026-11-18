@@ -24,13 +24,13 @@ Ulanzi D200H용 Ulanzi Studio 플러그인. Orca(Stably AI의 에이전트 개�
 - `orca terminal list --json` → `result.terminals[]`: `handle, tabId, leafId, title, paneTitle, worktreePath, branch, connected, lastOutputAt, agentIdentity, exitCause, orphaned`
 - `orca worktree ps --limit 200 --json` → `result.worktrees[].agents[]`: `paneKey, state(working|blocked|waiting|done), agentType, conversationName, displayName, taskTitle, toolName`
 - 둘은 `paneKey === tabId + ':' + leafId`로 잇는다.
-- 상태 매핑: working·waiting → RUNNING, blocked → PERMIT?, done → IDLE, exitCause/연결 끊김 → ENDED. ps 행이 없으면 `lastOutputAt`으로 RUNNING/IDLE만 추정하고, 주황(승인 필요)은 추정으로 띄우지 않는다.
+- 상태 매핑: working → RUNNING, blocked(도구 승인 대기) → PERMIT?, waiting(AI가 낸 질문·선택지 대기, 예: `AskUserQuestion`) → CHOOSE?, done → IDLE, exitCause/연결 끊김 → ENDED. ps 행이 없으면 `lastOutputAt`으로 RUNNING/IDLE만 추정하고, 주황(승인 필요)은 추정으로 띄우지 않는다.
 - 키를 짧게 누르면 `orca terminal switch --terminal <handle>` 후 `open -a Orca`.
 - 길게(0.5초) 누르면 세션 슬롯·더보기 키들이 상세 화면이 된다(한도 키는 그대로, 60초 안 누르면 목록으로). 키가 작아 글자 정보 카드는 넣지 않고 누르면 동작하는 버튼만 둔다.
   - 윗줄: BACK · 세션 · OPEN(`terminal switch`) · MODE(Claude만, Shift+Tab `\x1b[Z`, 이름은 화면 아래 상태 줄을 `parseMode`로) · NEW(`agent launch --agent <같은 에이전트> --worktree path:<같은 워크트리> --focus`)
   - 아랫줄: 승인 대기 = 화면의 선택지 + ESC, 작업 중 = STOP(Esc), 쉬는 중 = 빠른 답장(설정 `replies`, 최대 4개, `terminal send --text … --enter`)
   - 선택지는 `orca terminal read --screen`의 번호 줄(`1. Yes` …)을 `parseOptions`로 읽는다. 누르면 `terminal send --text <번호>`, ESC/STOP은 `--text $'\x1b'`.
-  - 보내기 직전에 `worktree ps`를 다시 읽어 같은 승인 요청(`paneKey@stateStartedAt`)이 아직 blocked일 때만 보낸다. 이 확인은 빼지 말 것.
+  - 보내기 직전에 `worktree ps`를 다시 읽어 같은 요청(`paneKey@stateStartedAt`)이 아직 blocked/waiting일 때만 보낸다. 이 확인은 빼지 말 것.
   - 짧게/길게는 `keydown`/`keyup`으로 가르고, keydown을 보낸 적 있는 키는 `run`을 무시한다(run만 오는 호스트·테스트는 run = 짧게).
 - 핸들은 Orca 재시작 시 바뀐다. 매 폴링마다 목록을 새로 받으므로 저장하지 않는다.
 - Orca 소스(참고용): https://github.com/stablyai/orca — CLI 스펙은 `src/cli/specs/`, 결과 타입은 `src/shared/terminal/runtime/runtime-terminal-contracts.ts`, `src/shared/worktree/catalog/runtime-worktree-contracts.ts`
@@ -53,11 +53,11 @@ Ulanzi D200H용 Ulanzi Studio 플러그인. Orca(Stably AI의 에이전트 개�
 ## 디자인 규칙 (AgentDeck 따름)
 
 - 렌더러는 AgentDeck `shared/src/svg-renderers/session-slot-renderer.ts`와 `shared/src/d200h-layout.ts`, 토큰은 `design/tokens.css`에서 옮겨 왔다 (MIT, THIRD-PARTY-NOTICES.md). 새 키 모양을 만들 때도 그쪽 구성과 토큰을 먼저 본다: https://github.com/puritysb/AgentDeck
-- 색은 의미가 하나씩: 청록 #2DD4BF = 작업 중, 주황 #FFA93D = 사람이 필요함(유일하게 강조되는 색), 초록 #52D988 = 세션 키에선 방금 끝남(DONE), 초록/주황/빨강 = 한도 심각도(사용 70%/90% 기준), 회색 = 정보 없음.
+- 색은 의미가 하나씩: 청록 #2DD4BF = 작업 중, 주황 #FFA93D = 사람이 필요함(PERMIT?·CHOOSE?, 유일하게 강조되는 색), 초록 #52D988 = 세션 키에선 방금 끝남(DONE), 초록/주황/빨강 = 한도 심각도(사용 70%/90% 기준), 회색 = 정보 없음.
 - 에이전트·회사 로고는 넣지 않는다. 이름 + AgentDeck의 브랜드 강조색만 쓴다.
-- 키 위 문구는 AgentDeck처럼 짧은 영어 대문자(RUNNING, IDLE, PERMIT?, DONE, MORE, 5H, 7D, USED, LEFT). 설정 화면과 문서는 한국어.
+- 키 위 문구는 AgentDeck처럼 짧은 영어 대문자(RUNNING, IDLE, PERMIT?, CHOOSE?, DONE, MORE, 5H, 7D, USED, LEFT). 설정 화면과 문서는 한국어.
 - 키 캔버스는 144×144 SVG, `setBaseDataIcon`에 `data:image/svg+xml;base64,…`로 보낸다(울란지 공식 데모와 같은 방식). 같은 그림이면 다시 보내지 않도록 마지막 data URL을 캐시한다 — SVG 안에 무작위 id를 넣지 말 것.
-- 움직이는 키는 GIF다: RUNNING = 테두리 회전, PERMIT? = 주황 깜빡임(빠르게), DONE = 초록 깜빡임(천천히). DONE은 `worktree ps`의 `stateStartedAt`이 5분 이내인 done이고, 그 키를 누르면(`paneKey@stateStartedAt` 기억) IDLE로 돌아간다. 만드는 법(`gif.js`, AgentDeck과 같은 resvg wasm → gifenc). 정적 SVG를 먼저 보내고, GIF가 준비됐을 때 그 키 그림이 그대로면 `setGifDataIcon`으로 바꿔 끼운다. GIF는 정적 data URL을 키로 캐시. 폰트는 시스템 `AppleSDGothicNeo.ttc`를 읽는다. GIF를 못 만들면 정적 SVG가 그대로 남는다.
+- 움직이는 키는 GIF다: RUNNING = 테두리 회전, PERMIT?·CHOOSE? = 주황 깜빡임(빠르게), DONE = 초록 깜빡임(천천히). DONE은 `worktree ps`의 `stateStartedAt`이 5분 이내인 done이고, 그 키를 누르면(`paneKey@stateStartedAt` 기억) IDLE로 돌아간다. 만드는 법(`gif.js`, AgentDeck과 같은 resvg wasm → gifenc). 정적 SVG를 먼저 보내고, GIF가 준비됐을 때 그 키 그림이 그대로면 `setGifDataIcon`으로 바꿔 끼운다. GIF는 정적 data URL을 키로 캐시. 폰트는 시스템 `AppleSDGothicNeo.ttc`를 읽는다. GIF를 못 만들면 정적 SVG가 그대로 남는다.
 - 세션 키 제목은 22→14px 중 잘리지 않고 들어가는 가장 큰 크기(`NAME_SIZES`). 브랜치·도구 줄과 에이전트 색 점은 없다(작아서 안 읽히고, Claude 점이 PERMIT? 주황과 헷갈림). 에이전트 색은 IDLE 글자에만.
 - 글자 폭은 `render.js`의 `charEm` 추정치로 줄바꿈한다. 한글은 1em. 넘치면 추정치를 고친다.
 
