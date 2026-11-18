@@ -50,3 +50,7 @@ com.ulanzi.orcasessions.ulanziPlugin/   플러그인 본체 (이 폴더가 그�
 test/                                   시나리오 테스트와 가짜 orca·사용량 API
 scripts/                                로컬 설치, 패키징
 ```
+
+## 라이선스
+
+[MIT](LICENSE). 단, `com.ulanzi.orcasessions.ulanziPlugin/plugin/ulanzi/`와 `libs/`는 Ulanzi 공식 SDK(Apache-2.0), 키 디자인은 AgentDeck(MIT)에서 가져왔습니다 — [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).

@@ -2,6 +2,7 @@
   "name": "orca-sessions-ulanzi-plugin",
   "version": "0.3.0",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "start": "node plugin/app.js"
