@@ -337,8 +337,8 @@ function shortUsageError(e) {
   return 'unavailable';
 }
 
-// 한도 키를 누르면 모든 한도 키가 남은 % ↔ 사용한 %로 같이 바뀐다 (메모리에만, 재시작하면 남은 %)
-let showUsed = false;
+// 한도 키를 누르면 모든 한도 키가 사용한 % ↔ 남은 %로 같이 바뀐다 (메모리에만, 재시작하면 사용한 %)
+let showUsed = true;
 
 function renderUsageKeys() {
   for (const [ctx, metric] of usageMetrics()) {

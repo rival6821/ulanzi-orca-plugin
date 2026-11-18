@@ -40,7 +40,7 @@ Ulanzi D200H용 Ulanzi Studio 플러그인. Orca(Stably AI의 에이전트 개�
 
 - 키 이름은 `열_행` (`0_0`이 왼쪽 위). 5열 × 3행이고, 아랫줄 오른쪽 두 칸(`3_2`,`4_2`)은 기본 시계 위젯이라 쓸 수 있는 키는 13개.
 - 권장 배치: 위 두 줄 = 세션 슬롯 9 + 더보기(`4_1`), 아랫줄 `0_2..2_2` = 한도 3개.
-- 한도 키를 누르면 모든 한도 키가 남은 %(LEFT) ↔ 사용한 %(USED)로 같이 바뀐다(메모리에만). 조회 오류가 있는 키는 누르면 전환 대신 다시 조회.
+- 한도 키는 기본 사용한 %(USED). 누르면 모든 한도 키가 남은 %(LEFT)로 같이 바뀐다(메모리에만, 재시작하면 USED). 조회 오류가 있는 키는 누르면 전환 대신 다시 조회.
 - 한도 키 자동 배정: 3개 이하면 `claude-5h, claude-week, codex-pair`, 4개 이상이면 개별 지표.
 - 슬롯은 행→열 순으로 정렬. 실제 기기에서 키 이름 형식이 다르면 설정의 "슬롯 순서" 수동 지정으로 우회.
 
@@ -49,7 +49,7 @@ Ulanzi D200H용 Ulanzi Studio 플러그인. Orca(Stably AI의 에이전트 개�
 - 렌더러는 AgentDeck `shared/src/svg-renderers/session-slot-renderer.ts`와 `shared/src/d200h-layout.ts`, 토큰은 `design/tokens.css`에서 옮겨 왔다 (MIT, THIRD-PARTY-NOTICES.md). 새 키 모양을 만들 때도 그쪽 구성과 토큰을 먼저 본다: https://github.com/puritysb/AgentDeck
 - 색은 의미가 하나씩: 청록 #2DD4BF = 작업 중, 주황 #FFA93D = 사람이 필요함(유일하게 강조되는 색), 초록 #52D988 = 세션 키에선 방금 끝남(DONE), 초록/주황/빨강 = 한도 심각도(사용 70%/90% 기준), 회색 = 정보 없음.
 - 에이전트·회사 로고는 넣지 않는다. 이름 + AgentDeck의 브랜드 강조색만 쓴다.
-- 키 위 문구는 AgentDeck처럼 짧은 영어 대문자(RUNNING, IDLE, PERMIT?, MORE, 5H, 7D, LEFT). 설정 화면과 문서는 한국어.
+- 키 위 문구는 AgentDeck처럼 짧은 영어 대문자(RUNNING, IDLE, PERMIT?, DONE, MORE, 5H, 7D, USED, LEFT). 설정 화면과 문서는 한국어.
 - 키 캔버스는 144×144 SVG, `setBaseDataIcon`에 `data:image/svg+xml;base64,…`로 보낸다(울란지 공식 데모와 같은 방식). 같은 그림이면 다시 보내지 않도록 마지막 data URL을 캐시한다 — SVG 안에 무작위 id를 넣지 말 것.
 - 움직이는 키는 GIF다: RUNNING = 테두리 회전, PERMIT? = 주황 깜빡임(빠르게), DONE = 초록 깜빡임(천천히). DONE은 `worktree ps`의 `stateStartedAt`이 1분 이내인 done이고, 그 키를 누르면(`paneKey@stateStartedAt` 기억) IDLE로 돌아간다. 만드는 법(`gif.js`, AgentDeck과 같은 resvg wasm → gifenc). 정적 SVG를 먼저 보내고, GIF가 준비됐을 때 그 키 그림이 그대로면 `setGifDataIcon`으로 바꿔 끼운다. GIF는 정적 data URL을 키로 캐시. 폰트는 시스템 `AppleSDGothicNeo.ttc`를 읽는다. GIF를 못 만들면 정적 SVG가 그대로 남는다.
 - 세션 키 제목은 22→14px 중 잘리지 않고 들어가는 가장 큰 크기(`NAME_SIZES`). 브랜치·도구 줄과 에이전트 색 점은 없다(작아서 안 읽히고, Claude 점이 PERMIT? 주황과 헷갈림). 에이전트 색은 IDLE 글자에만.

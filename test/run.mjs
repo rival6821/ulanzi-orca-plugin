@@ -116,18 +116,18 @@ try {
   check('DONE 키를 누르면 깜빡임이 멈추고 IDLE', svgOf('4_0').includes('>IDLE<') && !gifs['4_0']);
   check('셸 터미널은 숨김', !Object.keys(icons).some((k) => svgOf(k).includes('>zsh<')));
   check('더보기 키에 +2 · 1/2', svgOf('4_1').includes('+2 · 1/2'));
-  check('한도 0_2 = Claude 5H 73% 남음', svgOf('0_2').includes('>5H<') && svgOf('0_2').includes('>73%<'));
-  check('한도 1_2 = Claude 7D 36% 남음', svgOf('1_2').includes('>7D<') && svgOf('1_2').includes('>36%<'));
-  check('한도 2_2 = Codex 5H+7D 묶음', svgOf('2_2').includes('Codex') && svgOf('2_2').includes('>12<') && svgOf('2_2').includes('>0<'));
+  check('한도 0_2 = Claude 5H 27% 사용 (기본 USED)', svgOf('0_2').includes('>5H<') && svgOf('0_2').includes('>27%<') && svgOf('0_2').includes('>USED<'));
+  check('한도 1_2 = Claude 7D 64% 사용', svgOf('1_2').includes('>7D<') && svgOf('1_2').includes('>64%<'));
+  check('한도 2_2 = Codex 5H+7D 묶음', svgOf('2_2').includes('Codex') && svgOf('2_2').includes('>88<') && svgOf('2_2').includes('>100<'));
 
   send({ cmd: 'run', uuid: `${P}.usage`, key: '0_2', actionid: 'a0_2' });
   await sleep(300);
-  snap('한도 키를 누른 뒤 (사용한 %)');
-  check('한도 키를 누르면 모든 한도 키가 사용한 %로', svgOf('0_2').includes('>27%<') && svgOf('0_2').includes('>USED<') &&
-    svgOf('1_2').includes('>64%<') && svgOf('2_2').includes('>88<') && svgOf('2_2').includes('>USED<'));
+  snap('한도 키를 누른 뒤 (남은 %)');
+  check('한도 키를 누르면 모든 한도 키가 남은 %로', svgOf('0_2').includes('>73%<') && svgOf('0_2').includes('>LEFT<') &&
+    svgOf('1_2').includes('>36%<') && svgOf('2_2').includes('>12<') && svgOf('2_2').includes('>LEFT<'));
   send({ cmd: 'run', uuid: `${P}.usage`, key: '2_2', actionid: 'a2_2' });
   await sleep(300);
-  check('한 번 더 누르면 남은 %로 돌아옴', svgOf('0_2').includes('>73%<') && svgOf('0_2').includes('>LEFT<') && svgOf('2_2').includes('>12<'));
+  check('한 번 더 누르면 사용한 %로 돌아옴', svgOf('0_2').includes('>27%<') && svgOf('0_2').includes('>USED<') && svgOf('2_2').includes('>88<'));
 
   send({ cmd: 'run', uuid: `${P}.more`, key: '4_1', actionid: 'a4_1' });
   await sleep(400);
@@ -155,7 +155,7 @@ try {
   await sleep(2600);
   snap('Orca 꺼짐');
   check('Orca가 꺼지면 첫 칸에 OFFLINE', svgOf('0_0').includes('OFFLINE'));
-  check('한도 키는 Orca와 무관하게 유지', svgOf('0_2').includes('>73%<'));
+  check('한도 키는 Orca와 무관하게 유지', svgOf('0_2').includes('>27%<'));
 
   check('플러그인 stderr에 예외 없음', !/TypeError|ReferenceError|uncaught/i.test(stderr));
 } catch (e) {
