@@ -200,8 +200,8 @@ function sessionSvg(v, frame = null) {
   const accent = agentAccent(v.agent);
   const fam = esc(FONT_UI);
 
-  const stateLbl = isAsking ? (v.ask ? 'CHOOSE?' : 'PERMIT?') : isWorking ? 'RUNNING' : isEnded ? 'ENDED' : isDone ? 'DONE' : 'IDLE';
-  const colorText = isWorking ? '#CCFBF1' : isAsking ? '#FCD34D' : isDone ? '#BBF7D0' : isEnded ? UI.idleDark : accent;
+  const stateLbl = isAsking ? (v.ask ? 'CHOOSE?' : 'PERMIT?') : isWorking ? 'RUNNING' : isEnded ? 'ENDED' : isDone ? 'DONE' : v.watching ? 'WATCHING' : 'IDLE';
+  const colorText = isWorking ? '#CCFBF1' : isAsking ? '#FCD34D' : isDone ? '#BBF7D0' : isEnded ? UI.idleDark : v.watching ? '#94A3B8' : accent;
 
   const nameText = fitBlock(v.name || '(untitled)', { fill: isEnded ? '#71717A' : UI.hudText });
 

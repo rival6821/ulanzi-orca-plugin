@@ -186,6 +186,12 @@ function agentRowFor(t) {
   return agents.get(`${t.tabId}:${t.leafId}`) || (t.recordedPaneKey && agents.get(t.recordedPaneKey)) || null;
 }
 
+// 백그라운드 모니터링만 돌 때 Orca는 바깥 state를 working으로 올린다(workingMode: 'monitoring').
+// 그때는 본체 턴 상태(mainAgent)를 쓴다.
+const watching = (row) => row.state === 'working' && row.workingMode === 'monitoring' && !!row.mainAgent?.state;
+const stateOf = (row) => (watching(row) ? row.mainAgent.state : row.state);
+const sinceOf = (row) => (watching(row) ? row.mainAgent.stateStartedAt : row.stateStartedAt);
+
 function viewFor(t, now) {
   const row = agentRowFor(t);
   const agent = String(row?.agentType || t.agentIdentity || '').toLowerCase();
@@ -198,13 +204,14 @@ function viewFor(t, now) {
   }
   // Orca가 알려주는 상태가 있으면 그대로 쓴다
   if (row?.state) {
+    const state = stateOf(row);
     // blocked = 도구 승인 대기(PERMIT?), waiting = AI가 낸 질문·선택지에 답 대기(CHOOSE?). Orca도 둘 다 "입력 필요"로 본다.
-    if (row.state === 'blocked') return { tone: 'awaiting', agent, name };
-    if (row.state === 'waiting') return { tone: 'awaiting', ask: true, agent, name };
-    if (row.state === 'working') return { tone: 'working', agent, name };
-    const doneId = `${row.paneKey}@${row.stateStartedAt}`;
-    const fresh = row.state === 'done' && now - Number(row.stateStartedAt) < DONE_BLINK_MS && !seenDone.has(doneId);
-    return { tone: 'idle', agent, name, fresh, doneId };
+    if (state === 'blocked') return { tone: 'awaiting', agent, name };
+    if (state === 'waiting') return { tone: 'awaiting', ask: true, agent, name };
+    if (state === 'working') return { tone: 'working', agent, name };
+    const doneId = requestKey(row);
+    const fresh = state === 'done' && now - Number(sinceOf(row)) < DONE_BLINK_MS && !seenDone.has(doneId);
+    return { tone: 'idle', agent, name, fresh, doneId, watching: watching(row) };
   }
   // 없으면 마지막 출력 시각으로만 추정 (주황 '승인 필요'는 추정으로 띄우지 않는다)
   const quietMs = t.lastOutputAt ? now - Number(t.lastOutputAt) : Infinity;
@@ -323,7 +330,7 @@ const SHIFT_TAB = '\x1b[Z';
 /** @type {{handle:string, touchedAt:number, screenKey:string|null, options:{n:number,label:string}[], mode:string}|null} */
 let detail = null;
 
-const requestKey = (row) => `${row.paneKey}@${row.stateStartedAt}`;
+const requestKey = (row) => `${row.paneKey}@${sinceOf(row)}`;
 
 /** 세션 슬롯 + 더보기 키를 실제 위치(행→열) 순으로. 상세 화면은 슬롯 순서 지정을 무시한다. */
 function gridCtxs() {
@@ -422,7 +429,7 @@ async function onDetailPress(ctx, a) {
     // 보내기 직전에 Orca에 다시 물어서, 화면에 띄운 그 승인 요청이 아직 그대로일 때만 보낸다.
     if (a.guard) {
       const row = (await orca.listAgents()).get(a.guard.paneKey);
-      if (!row || !['blocked', 'waiting'].includes(row.state) || requestKey(row) !== a.guard.request) {
+      if (!row || !['blocked', 'waiting'].includes(stateOf(row)) || requestKey(row) !== a.guard.request) {
         $UD.toast('승인 요청이 바뀌었습니다. 화면을 다시 확인하세요.');
         pollSessions();
         return;

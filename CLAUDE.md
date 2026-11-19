@@ -24,7 +24,7 @@ Ulanzi D200H용 Ulanzi Studio 플러그인. Orca(Stably AI의 에이전트 개�
 - `orca terminal list --json` → `result.terminals[]`: `handle, tabId, leafId, title, paneTitle, worktreePath, branch, connected, lastOutputAt, agentIdentity, exitCause, orphaned`
 - `orca worktree ps --limit 200 --json` → `result.worktrees[].agents[]`: `paneKey, state(working|blocked|waiting|done), agentType, conversationName, displayName, taskTitle, toolName`
 - 둘은 `paneKey === tabId + ':' + leafId`로 잇는다.
-- 상태 매핑: working → RUNNING, blocked(도구 승인 대기) → PERMIT?, waiting(AI가 낸 질문·선택지 대기, 예: `AskUserQuestion`) → CHOOSE?, done → IDLE, exitCause/연결 끊김 → ENDED. ps 행이 없으면 `lastOutputAt`으로 RUNNING/IDLE만 추정하고, 주황(승인 필요)은 추정으로 띄우지 않는다.
+- 상태 매핑: working → RUNNING, blocked(도구 승인 대기) → PERMIT?, waiting(AI가 낸 질문·선택지 대기, 예: `AskUserQuestion`) → CHOOSE?, done → IDLE, exitCause/연결 끊김 → ENDED. 단, `state: working` + `workingMode: 'monitoring'`(턴은 끝났고 백그라운드 모니터링만 도는 중)이면 `mainAgent.state`/`mainAgent.stateStartedAt`을 쓰고, 쉬는 중이면 회색 WATCHING(회전 없음)으로 띄운다. ps 행이 없으면 `lastOutputAt`으로 RUNNING/IDLE만 추정하고, 주황(승인 필요)은 추정으로 띄우지 않는다.
 - 키를 짧게 누르면 `orca terminal switch --terminal <handle>` 후 `open -a Orca`.
 - 길게(0.5초) 누르면 세션 슬롯·더보기 키들이 상세 화면이 된다(한도 키는 그대로, 60초 안 누르면 목록으로). 키가 작아 글자 정보 카드는 넣지 않고 누르면 동작하는 버튼만 둔다.
   - 윗줄: BACK · 세션 · OPEN(`terminal switch`) · MODE(Claude만, Shift+Tab `\x1b[Z`, 이름은 화면 아래 상태 줄을 `parseMode`로) · NEW(`agent launch --agent <같은 에이전트> --worktree path:<같은 워크트리> --focus`)

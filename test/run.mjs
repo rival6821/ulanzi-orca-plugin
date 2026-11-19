@@ -85,6 +85,8 @@ const agents = titles.map((t, i) => ({
   toolName: states[i] === 'working' ? 'Bash' : states[i] === 'blocked' ? 'Bash: npm test' : null,
   // 4번(다크 모드)만 방금 끝남 → DONE으로 깜빡임. 나머지 done은 1시간 전.
   stateStartedAt: Date.now() - (i === 4 ? 0 : 3600000),
+  // 7번은 턴은 끝났고 백그라운드 모니터링만 도는 중 → Orca는 바깥 state를 working으로 준다
+  ...(i === 7 ? { state: 'working', workingMode: 'monitoring', mainAgent: { state: 'done', stateStartedAt: Date.now() - 3600000 } } : {}),
 }));
 
 const results = [];
@@ -120,6 +122,7 @@ try {
   check('1_0 blocked 세션은 PERMIT? + PERM', svgOf('1_0').includes('PERMIT?') && svgOf('1_0').includes('>PERM<'));
   check('2_0 done 세션은 IDLE', svgOf('2_0').includes('>IDLE<'));
   check('waiting(AI 질문 대기)은 CHOOSE?, PERM 없음 (0_1)', svgOf('0_1').includes('CHOOSE?') && !svgOf('0_1').includes('>PERM<') && isGif('0_1'));
+  check('모니터링만 도는 세션은 WATCHING, 회전 없음 (2_1)', svgOf('2_1').includes('>WATCHING<') && !gifs['2_1']);
   check('RUNNING 키는 움직이는 GIF로 바뀜', isGif('0_0'));
   check('PERMIT? 키도 깜빡이는 GIF', isGif('1_0'));
   check('방금 끝난 세션은 DONE + GIF (4_0)', svgOf('4_0').includes('>DONE<') && isGif('4_0'));
