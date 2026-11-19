@@ -5,7 +5,7 @@
   "Icon": "resources/plugin-icon.png",
   "Category": "Orca",
   "CategoryIcon": "resources/category-icon.png",
-  "Version": "0.3.0",
+  "Version": "1.0.0",
   "UUID": "com.ulanzi.ulanzistudio.orcasessions",
   "Type": "JavaScript",
   "CodePath": "plugin/app.js",
