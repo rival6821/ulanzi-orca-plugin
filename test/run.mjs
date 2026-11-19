@@ -45,6 +45,8 @@ LAYOUT.push({ key: '3_2', action: 'buddy' }); // 테스트용 자리 (실기기 
 
 const icons = {};
 const gifs = {};
+const gifSvg = new Map(); // GIF base64 → 같은 장면의 정적 SVG data URL
+let gifOnly = 0; // 정적 그림 없이 GIF만 바로 온 횟수
 let sock;
 const wss = new WebSocketServer({ port: PORT });
 wss.on('connection', (ws) => {
@@ -52,9 +54,13 @@ wss.on('connection', (ws) => {
   ws.on('message', (raw) => {
     const m = JSON.parse(raw);
     // 정적 그림(type 2)은 icons, 움직이는 GIF(type 3)는 gifs. GIF가 온 뒤에도 icons엔 같은 장면의 SVG가 남는다.
+    // 이미 만든 GIF는 정적 그림 없이 바로 오므로, 처음 받을 때 짝지은 SVG를 기억해 icons에 채운다.
     if (m.cmd === 'state') for (const s of m.param.statelist) {
-      if (s.type === 3) gifs[s.key] = s.gifdata;
-      else { icons[s.key] = s.data; delete gifs[s.key]; }
+      if (s.type === 3) {
+        gifs[s.key] = s.gifdata;
+        if (gifSvg.has(s.gifdata)) { if (icons[s.key] !== gifSvg.get(s.gifdata)) gifOnly++; icons[s.key] = gifSvg.get(s.gifdata); }
+        else gifSvg.set(s.gifdata, icons[s.key]);
+      } else { icons[s.key] = s.data; delete gifs[s.key]; }
     }
   });
 });
@@ -198,6 +204,13 @@ try {
   snap('더보기를 누른 뒤 (2페이지)');
   check('2페이지 첫 칸은 10번째 세션', svgOf('0_0').includes('온보딩'));
   check('더보기 키에 2/2', svgOf('4_1').includes('2/2'));
+
+  const before = gifOnly;
+  send({ cmd: 'run', uuid: `${P}.more`, key: '4_1', actionid: 'a4_1' });
+  await sleep(400);
+  check('1페이지로 돌아오면 만들어 둔 GIF를 정적 그림 없이 바로 보냄', gifOnly > before && svgOf('0_0').includes('RUNNING') && isGif('0_0'));
+  send({ cmd: 'run', uuid: `${P}.more`, key: '4_1', actionid: 'a4_1' });
+  await sleep(400);
 
   await press('0_0');
   await sleep(200);

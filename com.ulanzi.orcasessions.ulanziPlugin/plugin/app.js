@@ -82,19 +82,22 @@ const hasAny = (action) => [...keys.values()].some((k) => k.action === action);
 function send(ctx, dataUrl, makeGif) {
   if (lastIcon.get(ctx) === dataUrl) return;
   lastIcon.set(ctx, dataUrl);
+  let entry = makeGif && gifCache.get(dataUrl);
+  // 이미 만든 GIF면 정적 그림 없이 바로 보낸다 (키마다 두 번 보내면 페이지 전환이 느려진다)
+  if (entry?.gif) return $UD.setGifDataIcon(ctx, entry.gif);
   $UD.setBaseDataIcon(ctx, dataUrl);
   if (!makeGif) return;
-  let job = gifCache.get(dataUrl);
-  if (!job) {
-    job = makeGif();
-    gifCache.set(dataUrl, job);
+  if (!entry) {
+    entry = { gif: null };
+    entry.job = makeGif().then((gif) => (entry.gif = gif));
+    gifCache.set(dataUrl, entry);
     if (gifCache.size > 32) gifCache.delete(gifCache.keys().next().value);
   }
-  job.then((gif) => {
+  entry.job.then((gif) => {
     if (gif && lastIcon.get(ctx) === dataUrl) $UD.setGifDataIcon(ctx, gif);
   });
 }
-const gifCache = new Map(); // 정적 data URL → Promise<GIF base64|null>
+const gifCache = new Map(); // 정적 data URL → { job: Promise<GIF base64|null>, gif: 다 만들었으면 base64 }
 
 // 방금 끝난(done) 세션은 5분 동안, 또는 키를 눌러 확인할 때까지 DONE으로 깜빡인다.
 const DONE_BLINK_MS = 5 * 60 * 1000;
