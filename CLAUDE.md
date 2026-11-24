@@ -10,6 +10,7 @@ Ulanzi D200H용 Ulanzi Studio 플러그인. Orca(Stably AI의 에이전트 개�
 - `npm test` — 시나리오 테스트. 코드를 바꾸면 반드시 실행
 - `npm run preview` — `test/out/preview.html`로 키 모양 확인. 렌더러를 바꾸면 눈으로 확인
 - `npm run install:local` — 실제 Ulanzi Studio에 복사 설치. 재시작은 `pkill -x UlanziDeck; sleep 4; open -a "Ulanzi Studio"` (프로세스 이름은 `Ulanzi Studio`가 아니라 `UlanziDeck`. 남은 옛 플러그인 node 프로세스가 있으면 `pgrep -fl orcasessions`로 찾아 종료)
+- `npm run package` — `dist/`에 배포 zip. GitHub 릴리스는 `gh release create vX.Y.Z <zip>`로 올리고 노트는 영어로 쓴다 (설치 방법 + 바뀐 점). 버전은 `manifest.json`·`package.json`·`package-lock.json`을 같이 올린다.
 
 ## 구조
 
