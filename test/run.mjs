@@ -3,6 +3,7 @@
 //
 //   npm test              시나리오 실행
 //   npm run preview       실행 후 test/out/preview.html 생성 (브라우저로 열어 키 모양 확인)
+//   npm run preview -- --en  세션 제목을 영어로 (README 영어판 그림 docs/preview-en.png용)
 
 import { spawn } from 'child_process';
 import fs from 'fs';
@@ -78,7 +79,10 @@ const isGif = (k) => Buffer.from(gifs[k] || '', 'base64').subarray(0, 6).toStrin
 const svgOf = (key) => (icons[key] ? Buffer.from(icons[key].split(',')[1], 'base64').toString('utf8') : '');
 
 // ── 시나리오 데이터 ──
-const titles = ['로그인 버그 고치기', 'Refactor payment module', 'README 업데이트', 'API 테스트 작성', '다크 모드 추가', 'CI 캐시 정리', '검색 성능 개선', '알림 설정 화면', 'i18n 키 정리', '온보딩 문구 수정', '로그 포맷 통일'];
+// --en: README 영어판 미리보기 그림용 제목 (검사는 titles[i]로 본다)
+const titles = process.argv.includes('--en')
+  ? ['Fix login bug', 'Refactor payment module', 'Update README', 'Write API tests', 'Add dark mode', 'Clean CI cache', 'Speed up search', 'Alert settings', 'Tidy i18n keys', 'Edit onboarding copy', 'Unify log format']
+  : ['로그인 버그 고치기', 'Refactor payment module', 'README 업데이트', 'API 테스트 작성', '다크 모드 추가', 'CI 캐시 정리', '검색 성능 개선', '알림 설정 화면', 'i18n 키 정리', '온보딩 문구 수정', '로그 포맷 통일'];
 const states = ['working', 'blocked', 'done', 'working', 'done', 'waiting', 'blocked', 'done', 'working', 'done', 'done'];
 const terminals = titles.map((t, i) => ({
   handle: 'h' + i, tabId: 'tab' + i, leafId: 'leaf' + i, worktreePath: '/Users/me/dev/app-' + i,
@@ -204,7 +208,7 @@ try {
   send({ cmd: 'run', uuid: `${P}.more`, key: '4_1', actionid: 'a4_1' });
   await sleep(400);
   snap('더보기를 누른 뒤 (2페이지)');
-  check('2페이지 첫 칸은 10번째 세션', svgOf('0_0').includes('온보딩'));
+  check('2페이지 첫 칸은 10번째 세션', svgOf('0_0').includes(titles[9].split(' ')[0]));
   check('더보기 키에 2/2', svgOf('4_1').includes('2/2'));
 
   const before = gifOnly;
@@ -221,7 +225,7 @@ try {
   setState({ terminals: terminals.slice(0, 2), agents: agents.slice(0, 2) });
   await sleep(2600);
   snap('세션 2개로 줄어듦');
-  check('줄어들면 1페이지로 돌아오고 앞에서부터 채움', svgOf('0_0').includes('로그인') && svgOf('1_0').includes('Refactor'));
+  check('줄어들면 1페이지로 돌아오고 앞에서부터 채움', svgOf('0_0').includes(titles[0].split(' ')[0]) && svgOf('1_0').includes('Refactor'));
   check('남은 칸은 빈 슬롯', !svgOf('2_0').includes('<text'));
   check('더보기는 2 SHOWN', svgOf('4_1').includes('2 SHOWN'));
 

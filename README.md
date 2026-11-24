@@ -4,7 +4,7 @@
 
 An Ulanzi Studio plugin that shows your [Orca](https://orca.dev) agent sessions and remaining Claude / Codex usage limits on the Ulanzi D200H (macOS).
 
-![Key preview](docs/preview.png)
+![Key preview](docs/preview-en.png)
 
 - **Session slot**: Place it on several keys and Orca sessions fill them in key order. New sessions take the next empty slot; closed ones drop out and the rest shift forward. Press to switch Orca to that session; long-press to open a detail view with approve / stop / quick-reply buttons.
 - **More sessions**: Pages through sessions when there are more sessions than slots.

@@ -4,7 +4,7 @@
 
 一个 Ulanzi Studio 插件，在 Ulanzi D200H 上显示 [Orca](https://orca.dev) 的智能体会话以及 Claude、Codex 的剩余用量额度（macOS）。
 
-![按键预览](docs/preview.png)
+![按键预览](docs/preview-en.png)
 
 - **会话槽位**：放在多个按键上，Orca 会话会按按键位置顺序填入。新会话进入下一个空槽位，关闭的会话会移出，后面的依次前移。按下即可让 Orca 切换到该会话；长按会打开带有批准、停止、快捷回复按钮的详情界面。
 - **更多会话**：会话数多于槽位时翻到下一页。
