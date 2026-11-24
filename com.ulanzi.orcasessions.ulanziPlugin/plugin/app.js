@@ -15,6 +15,10 @@ import {
 } from './render.js';
 import { framesToGif } from './gif.js';
 import { buddyFrames, BUDDY_DELAY_MS, BUDDY_FRAMES, REACTIONS } from './buddy.js';
+import { setLanguage, t } from './i18n.js';
+
+// Ulanzi Studio가 넘기는 인자: 주소, 포트, 언어. SDK는 connect()에서야 읽으므로 기본 설정을 만들기 전에 직접 읽는다.
+setLanguage(process.argv[4]);
 
 const PLUGIN_UUID = 'com.ulanzi.ulanzistudio.orcasessions';
 const A_SLOT = `${PLUGIN_UUID}.slot`;
@@ -34,14 +38,8 @@ const DEFAULT_CONFIG = {
   workingSec: 5,
   bringToFront: 'on',
   usageMin: 5,
-  replies: ['계속해줘', '커밋해줘', '/compact'], // 상세 화면 빠른 답장 (최대 4개)
+  replies: t(['continue', 'commit', '/compact'], ['계속해줘', '커밋해줘', '/compact']), // 상세 화면 빠른 답장 (최대 4개)
   savedAt: 0,
-};
-
-const AGENT_NAMES = {
-  claude: 'Claude', codex: 'Codex', opencode: 'OpenCode', gemini: 'Gemini', cursor: 'Cursor',
-  copilot: 'Copilot', pi: 'Pi', amp: 'Amp', droid: 'Droid', kimi: 'Kimi', kiro: 'Kiro',
-  grok: 'Grok', devin: 'Devin', qoder: 'Qoder',
 };
 
 const $UD = new UlanziApi();
@@ -177,12 +175,6 @@ function cleanTitle(s) {
 function basename(p) {
   const parts = String(p || '').split(/[\\/]/).filter(Boolean);
   return parts[parts.length - 1] || '';
-}
-
-function agentLabel(t) {
-  if (!t.agentIdentity) return '셸';
-  const id = String(t.agentIdentity).toLowerCase();
-  return AGENT_NAMES[id] || id.charAt(0).toUpperCase() + id.slice(1);
 }
 
 function agentRowFor(t) {
@@ -434,7 +426,7 @@ async function onDetailPress(ctx, a) {
     if (a.guard) {
       const row = (await orca.listAgents()).get(a.guard.paneKey);
       if (!row || !['blocked', 'waiting'].includes(stateOf(row)) || requestKey(row) !== a.guard.request) {
-        $UD.toast('승인 요청이 바뀌었습니다. 화면을 다시 확인하세요.');
+        $UD.toast(t('The approval request changed. Check the screen again.', '승인 요청이 바뀌었습니다. 화면을 다시 확인하세요.'));
         pollSessions();
         return;
       }
@@ -776,7 +768,7 @@ async function onPress(ctx) {
     page += 1;
     renderSessions();
   } else if (a.type === 'error') {
-    $UD.toast(lastError?.message || 'Orca에 연결하지 못했습니다.');
+    $UD.toast(lastError?.message || t('Could not connect to Orca.', 'Orca에 연결하지 못했습니다.'));
     orca.resolvedPath = null;
     orca.env = null;
     pollSessions();

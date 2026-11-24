@@ -1,56 +1,61 @@
 # ulanzi-orca-plugin
 
-Ulanzi D200H에 [Orca](https://orca.dev)의 에이전트 세션과 Claude·Codex 남은 한도를 띄우는 Ulanzi Studio 플러그인 (macOS).
+**English** | [한국어](README.ko.md) | [日本語](README.ja.md) | [简体中文](README.zh-CN.md)
 
-![키 미리보기](docs/preview.png)
+An Ulanzi Studio plugin that shows your [Orca](https://orca.dev) agent sessions and remaining Claude / Codex usage limits on the Ulanzi D200H (macOS).
 
-- **세션 슬롯**: 여러 키에 깔아 두면 Orca 세션이 키 위치 순서대로 채워집니다. 세션이 생기면 다음 빈 칸에 들어가고, 닫히면 빠지면서 뒤쪽이 당겨집니다. 누르면 Orca가 그 세션으로 전환됩니다.
-- **더보기**: 세션이 슬롯보다 많을 때 다음 페이지로 넘깁니다.
-- **남은 한도**: Claude 5시간/주간, Codex 5시간/주간의 남은 비율과 초기화까지 남은 시간.
+![Key preview](docs/preview.png)
 
-키 디자인은 [AgentDeck](https://puritysb.github.io/AgentDeck/)의 D200H 렌더러를 따릅니다 (MIT, [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)).
+- **Session slot**: Place it on several keys and Orca sessions fill them in key order. New sessions take the next empty slot; closed ones drop out and the rest shift forward. Press to switch Orca to that session; long-press to open a detail view with approve / stop / quick-reply buttons.
+- **More sessions**: Pages through sessions when there are more sessions than slots.
+- **Remaining limit**: Claude 5-hour / weekly and Codex 5-hour / weekly usage, plus time until reset. Press to toggle between used % and left %.
+- **Claude buddy**: An animated Clawd that reacts to the overall state. Press to jump to the most urgent session.
 
-## 설치 (사용자)
+Key design follows the D200H renderer from [AgentDeck](https://puritysb.github.io/AgentDeck/) (MIT, [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)).
 
-1. Orca에서 **Settings → Experimental → CLI**로 `orca` CLI를 등록합니다.
-2. 이 저장소를 받은 뒤 `npm run install:local` (또는 Releases의 zip을 풀어 `~/Library/Application Support/Ulanzi/UlanziDeck/Plugins/`에 넣기)
-3. Ulanzi Studio를 재시작하고, **Orca** 분류의 액션을 키에 드래그합니다.
-   - 위 두 줄: 세션 슬롯 9개 + 둘째 줄 마지막 칸에 더보기
-   - 아랫줄 왼쪽 3칸: 남은 한도 3개 (Claude 5H, Claude 7D, Codex 5H+7D가 자동 배정)
+## Installation
 
-키 읽는 법, 설정, 문제 해결은 [플러그인 README](com.ulanzi.orcasessions.ulanziPlugin/README.md)를 보세요.
+1. In Orca, register the `orca` CLI via **Settings → Experimental → CLI**.
+2. Clone this repo and run `npm run install:local` (or unzip a release from Releases into `~/Library/Application Support/Ulanzi/UlanziDeck/Plugins/`).
+3. Restart Ulanzi Studio and drag actions from the **Orca** category onto keys.
+   - Top two rows: 9 session slots + More sessions in the last key of the second row
+   - Left 3 keys of the bottom row: 3 remaining-limit keys (Claude 5H, Claude 7D, Codex 5H+7D are assigned automatically)
 
-## 개발
+For how to read the keys, settings, and troubleshooting, see the [plugin README](com.ulanzi.orcasessions.ulanziPlugin/README.md) (Korean).
 
-Node.js 20 이상이 필요합니다.
+## Development
+
+Requires Node.js 20 or later.
 
 ```bash
-npm run setup          # 플러그인 런타임 의존성(ws) 설치
-npm test               # 가짜 Orca·가짜 Ulanzi Studio로 시나리오 테스트
-npm run preview        # 테스트 후 test/out/preview.html 생성 → 브라우저로 키 모양 확인
-npm run install:local  # 이 Mac의 Ulanzi Studio에 설치 (설치 후 Studio 재시작)
-npm run package        # dist/에 배포용 zip
+npm run setup          # install plugin runtime deps (ws, resvg-wasm and gifenc for GIFs)
+npm test               # scenario tests against a fake Orca and a fake Ulanzi Studio
+npm run preview        # after tests, writes test/out/preview.html — open it to check key rendering
+npm run install:local  # install into this Mac's Ulanzi Studio (restart Studio afterwards)
+npm run package        # build a release zip in dist/
 ```
 
-테스트는 실제 Orca, 키체인, 네트워크를 건드리지 않습니다. 실제 기기에서 디버깅하려면 Ulanzi Studio를 `--log --nodeRemoteDebug` 옵션으로 실행하고 Chrome의 `chrome://inspect`에서 메인 서비스를 확인하세요.
+Tests never touch the real Orca, the keychain, or the network. To debug on a real device, launch Ulanzi Studio with `--log --nodeRemoteDebug` and inspect the main service from `chrome://inspect` in Chrome.
 
-구조와 설계 결정, 주의할 점은 [CLAUDE.md](CLAUDE.md)에 정리되어 있습니다.
+Architecture, design decisions, and gotchas are documented in [CLAUDE.md](CLAUDE.md) (Korean).
 
-## 구조
+## Layout
 
 ```
-com.ulanzi.orcasessions.ulanziPlugin/   플러그인 본체 (이 폴더가 그대로 설치됨)
-  manifest.json                         액션 3개 정의
-  plugin/app.js                         메인 서비스: 폴링, 슬롯 배정, 키 입력
-  plugin/orca.js                        orca CLI 실행 (macOS PATH 보정)
-  plugin/usage.js                       Claude·Codex 사용량 조회
-  plugin/render.js                      키 SVG 렌더러 (AgentDeck 디자인)
-  plugin/ulanzi/, libs/                 울란지 공식 SDK (Apache-2.0, 수정하지 않음)
-  property-inspector/inspector.html     설정 화면 (세 액션 공용)
-test/                                   시나리오 테스트와 가짜 orca·사용량 API
-scripts/                                로컬 설치, 패키징
+com.ulanzi.orcasessions.ulanziPlugin/   the plugin itself (this folder is installed as-is)
+  manifest.json                         defines the 4 actions
+  plugin/app.js                         main service: polling, slot assignment, key input
+  plugin/orca.js                        runs the orca CLI (fixes up macOS PATH)
+  plugin/usage.js                       fetches Claude / Codex usage
+  plugin/render.js                      key SVG renderer (AgentDeck design)
+  plugin/buddy.js                       Claude buddy key
+  plugin/gif.js                         builds animated key GIFs
+  plugin/ulanzi/, libs/                 official Ulanzi SDK (Apache-2.0, unmodified)
+  property-inspector/inspector.html     settings UI (shared by all four actions)
+test/                                   scenario tests with fake orca and usage APIs
+scripts/                                local install, packaging
 ```
 
-## 라이선스
+## License
 
-[MIT](LICENSE). 단, `com.ulanzi.orcasessions.ulanziPlugin/plugin/ulanzi/`와 `libs/`는 Ulanzi 공식 SDK(Apache-2.0), 키 디자인은 AgentDeck(MIT)에서 가져왔습니다 — [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+[MIT](LICENSE). `com.ulanzi.orcasessions.ulanziPlugin/plugin/ulanzi/` and `libs/` are the official Ulanzi SDK (Apache-2.0), and the key design is taken from AgentDeck (MIT) — see [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).

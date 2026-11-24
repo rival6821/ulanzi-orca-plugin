@@ -8,6 +8,7 @@ import { execFile } from 'child_process';
 import { readFile } from 'fs/promises';
 import os from 'os';
 import path from 'path';
+import { t } from './i18n.js';
 
 const HOME = os.homedir();
 const TIMEOUT_MS = 10000;
@@ -50,7 +51,7 @@ async function getJson(url, headers) {
     return await res.json();
   } catch (e) {
     if (e instanceof UsageError) throw e;
-    throw new UsageError('network', e?.name === 'AbortError' ? '응답 시간 초과' : '네트워크 오류');
+    throw new UsageError('network', e?.name === 'AbortError' ? t('Request timed out', '응답 시간 초과') : t('Network error', '네트워크 오류'));
   } finally {
     clearTimeout(timer);
   }
@@ -91,12 +92,12 @@ async function readClaudeToken() {
       raw = '';
     }
   }
-  if (!raw) throw new UsageError('claude_no_login', 'Claude Code 로그인 정보를 찾지 못했습니다');
+  if (!raw) throw new UsageError('claude_no_login', t('Claude Code sign-in not found', 'Claude Code 로그인 정보를 찾지 못했습니다'));
   try {
     const token = JSON.parse(raw)?.claudeAiOauth?.accessToken;
     if (token) return token;
   } catch {}
-  throw new UsageError('claude_no_login', 'Claude Code 로그인 정보를 읽지 못했습니다');
+  throw new UsageError('claude_no_login', t('Could not read Claude Code sign-in', 'Claude Code 로그인 정보를 읽지 못했습니다'));
 }
 
 async function fetchClaude() {
@@ -119,7 +120,7 @@ async function fetchClaude() {
         data = await call();
       } catch (e2) {
         if (e2.status === 401 || e2.status === 403)
-          throw new UsageError('claude_expired', '로그인이 만료됨. Claude Code를 한 번 실행하세요');
+          throw new UsageError('claude_expired', t('Sign-in expired. Run Claude Code once', '로그인이 만료됨. Claude Code를 한 번 실행하세요'));
         throw e2;
       }
     } else throw e;
@@ -147,10 +148,10 @@ async function fetchCodex() {
   try {
     auth = JSON.parse(await readFile(path.join(home, 'auth.json'), 'utf8'));
   } catch {
-    throw new UsageError('codex_no_login', 'Codex 로그인 정보를 찾지 못했습니다');
+    throw new UsageError('codex_no_login', t('Codex sign-in not found', 'Codex 로그인 정보를 찾지 못했습니다'));
   }
   const token = auth?.tokens?.access_token;
-  if (!token) throw new UsageError('codex_no_login', 'Codex가 ChatGPT 계정으로 로그인되어 있지 않습니다');
+  if (!token) throw new UsageError('codex_no_login', t('Codex is not signed in with a ChatGPT account', 'Codex가 ChatGPT 계정으로 로그인되어 있지 않습니다'));
 
   const headers = {
     Authorization: `Bearer ${token}`,
@@ -165,7 +166,7 @@ async function fetchCodex() {
     data = await getJson('https://chatgpt.com/backend-api/wham/usage', headers);
   } catch (e) {
     if (e.status === 401 || e.status === 403)
-      throw new UsageError('codex_expired', '로그인이 만료됨. Codex를 한 번 실행하세요');
+      throw new UsageError('codex_expired', t('Sign-in expired. Run Codex once', '로그인이 만료됨. Codex를 한 번 실행하세요'));
     throw e;
   }
 

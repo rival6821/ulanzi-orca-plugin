@@ -8,6 +8,7 @@ import { execFile } from 'child_process';
 import { access, constants } from 'fs/promises';
 import os from 'os';
 import path from 'path';
+import { t } from './i18n.js';
 
 const HOME = os.homedir();
 
@@ -93,7 +94,7 @@ export class OrcaClient {
 
     if (this.customPath) {
       if (await isExecutable(this.customPath)) return (this.resolvedPath = this.customPath);
-      throw new OrcaError('orca_path_invalid', `지정한 경로에 실행 파일이 없습니다: ${this.customPath}`);
+      throw new OrcaError('orca_path_invalid', t(`No executable at the configured path: ${this.customPath}`, `지정한 경로에 실행 파일이 없습니다: ${this.customPath}`));
     }
 
     for (const c of CANDIDATES) {
@@ -107,7 +108,10 @@ export class OrcaClient {
 
     throw new OrcaError(
       'orca_not_found',
-      'orca 명령을 찾지 못했습니다. Orca의 Settings → Experimental → CLI에서 CLI를 등록하거나, 설정에서 경로를 직접 지정하세요.'
+      t(
+        'Could not find the orca command. Register the CLI in Orca under Settings → Experimental → CLI, or set the path in the plugin settings.',
+        'orca 명령을 찾지 못했습니다. Orca의 Settings → Experimental → CLI에서 CLI를 등록하거나, 설정에서 경로를 직접 지정하세요.'
+      )
     );
   }
 
@@ -129,13 +133,13 @@ export class OrcaClient {
     if (r.error) {
       if (r.error.code === 'ENOENT') {
         this.resolvedPath = null;
-        throw new OrcaError('orca_not_found', `orca를 실행할 수 없습니다: ${bin}`);
+        throw new OrcaError('orca_not_found', t(`Cannot run orca: ${bin}`, `orca를 실행할 수 없습니다: ${bin}`));
       }
-      if (r.error.killed) throw new OrcaError('orca_timeout', 'orca 응답이 너무 늦습니다. Orca 앱이 켜져 있는지 확인하세요.');
+      if (r.error.killed) throw new OrcaError('orca_timeout', t('orca is taking too long to respond. Make sure the Orca app is running.', 'orca 응답이 너무 늦습니다. Orca 앱이 켜져 있는지 확인하세요.'));
       const msg = (r.stderr || r.error.message || '').trim().split('\n').slice(-1)[0];
-      throw new OrcaError('orca_failed', msg || 'orca 실행에 실패했습니다.');
+      throw new OrcaError('orca_failed', msg || t('orca failed to run.', 'orca 실행에 실패했습니다.'));
     }
-    throw new OrcaError('orca_bad_output', 'orca 출력에서 JSON을 읽지 못했습니다.');
+    throw new OrcaError('orca_bad_output', t('Could not read JSON from orca output.', 'orca 출력에서 JSON을 읽지 못했습니다.'));
   }
 
   async listTerminals() {
