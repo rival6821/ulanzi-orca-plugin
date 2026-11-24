@@ -166,7 +166,7 @@ function ordered(action) {
 
 // ───────────────────────── 세션 ─────────────────────────
 
-const isAgent = (t) => !!t.agentIdentity || agents.has(`${t.tabId}:${t.leafId}`);
+const isAgent = (t) => !!t.agentIdentity || !!agentRowFor(t);
 
 function cleanTitle(s) {
   return String(s || '')
@@ -202,7 +202,8 @@ function viewFor(t, now) {
     row?.conversationName || row?.displayName || row?.taskTitle ||
     cleanTitle(t.paneTitle) || cleanTitle(t.title) || basename(t.worktreePath) || '(untitled)';
 
-  if (t.exitCause || t.connected === false || t.orphaned === true) {
+  // orphaned는 끝난 게 아니다: Orca 업데이트·재시작 뒤 살아 있는 PTY가 그래프에서 빠졌을 뿐(recordedPaneKey로 ps와 잇는다)
+  if (t.exitCause || t.connected === false) {
     return { tone: 'ended', agent, name };
   }
   // Orca가 알려주는 상태가 있으면 그대로 쓴다

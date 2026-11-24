@@ -85,6 +85,8 @@ const terminals = titles.map((t, i) => ({
   branch: 'feat/task-' + i, title: '✳ ' + t, connected: true, writable: true,
   lastOutputAt: Date.now() - 60000, preview: '', agentIdentity: i % 3 === 1 ? 'codex' : 'claude',
 }));
+// 2번은 Orca 업데이트 뒤처럼 orphaned: tabId가 pty:… 이고 ps와는 recordedPaneKey로만 이어진다
+Object.assign(terminals[2], { orphaned: true, tabId: 'pty:x', leafId: 'pty:x', recordedPaneKey: 'tab2:leaf2' });
 terminals.push({ handle: 'shell', tabId: 'ts', leafId: 'ls', worktreePath: '/x', branch: 'main', title: 'zsh', connected: true, lastOutputAt: Date.now() });
 const agents = titles.map((t, i) => ({
   paneKey: `tab${i}:leaf${i}`, state: states[i], agentType: i % 3 === 1 ? 'codex' : 'claude', conversationName: t,
@@ -126,7 +128,7 @@ try {
 
   check('0_0 작업 중 세션은 RUNNING', svgOf('0_0').includes('RUNNING'));
   check('1_0 blocked 세션은 PERMIT? + PERM', svgOf('1_0').includes('PERMIT?') && svgOf('1_0').includes('>PERM<'));
-  check('2_0 done 세션은 IDLE', svgOf('2_0').includes('>IDLE<'));
+  check('2_0 done 세션은 IDLE (orphaned여도 ENDED 아님)', svgOf('2_0').includes('>IDLE<'));
   check('waiting(AI 질문 대기)은 CHOOSE?, PERM 없음 (0_1)', svgOf('0_1').includes('CHOOSE?') && !svgOf('0_1').includes('>PERM<') && isGif('0_1'));
   check('모니터링만 도는 세션은 WATCHING, 회전 없음 (2_1)', svgOf('2_1').includes('>WATCHING<') && !gifs['2_1']);
   check('RUNNING 키는 움직이는 GIF로 바뀜', isGif('0_0'));
